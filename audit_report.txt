@@ -1,0 +1,415 @@
+========================================
+GEOM90007 ASSIGNMENT 2 - ABS DATA AUDIT
+========================================
+
+
+----------------------------------------
+310102.xlsx - COMPONENTS OF CHANGE
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 190 
+  Columns: 36 
+  Series: 35 
+  Observation period: 1981-06-01 to 2026-03-01 
+  Frequency: Quarter 
+  Missing observation cells: 9 of 6300 (0.14%) 
+
+  SERIES NAMES:
+  01. Natural Increase ;  New South Wales ;
+  02. Net Overseas Migration ;  New South Wales ;
+  03. Net Interstate Migration ;  New South Wales ;
+  04. Change Over Previous Quarter ;  New South Wales ;
+  05. Natural Increase ;  Victoria ;
+  06. Net Overseas Migration ;  Victoria ;
+  07. Net Interstate Migration ;  Victoria ;
+  08. Change Over Previous Quarter ;  Victoria ;
+  09. Natural Increase ;  Queensland ;
+  10. Net Overseas Migration ;  Queensland ;
+  11. Net Interstate Migration ;  Queensland ;
+  12. Change Over Previous Quarter ;  Queensland ;
+  13. Natural Increase ;  South Australia ;
+  14. Net Overseas Migration ;  South Australia ;
+  15. Net Interstate Migration ;  South Australia ;
+  16. Change Over Previous Quarter ;  South Australia ;
+  17. Natural Increase ;  Western Australia ;
+  18. Net Overseas Migration ;  Western Australia ;
+  19. Net Interstate Migration ;  Western Australia ;
+  20. Change Over Previous Quarter ;  Western Australia ;
+  21. Natural Increase ;  Tasmania ;
+  22. Net Overseas Migration ;  Tasmania ;
+  23. Net Interstate Migration ;  Tasmania ;
+  24. Change Over Previous Quarter ;  Tasmania ;
+  25. Natural Increase ;  Northern Territory ;
+  26. Net Overseas Migration ;  Northern Territory ;
+  27. Net Interstate Migration ;  Northern Territory ;
+  28. Change Over Previous Quarter ;  Northern Territory ;
+  29. Natural Increase ;  Australian Capital Territory ;
+  30. Net Overseas Migration ;  Australian Capital Territory ;
+  31. Net Interstate Migration ;  Australian Capital Territory ;
+  32. Change Over Previous Quarter ;  Australian Capital Territory ;
+  33. Natural Increase ;  Australia ;
+  34. Net Overseas Migration ;  Australia ;
+  35. Change Over Previous Quarter ;  Australia ;
+
+
+----------------------------------------
+310104.xlsx - POPULATION
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 190 
+  Columns: 28 
+  Series: 27 
+  Observation period: 1981-06-01 to 2026-03-01 
+  Frequency: Quarter 
+  Missing observation cells: 0 of 4860 (0.00%) 
+
+  SERIES NAMES:
+  01. Estimated Resident Population ;  Male ;  New South Wales ;
+  02. Estimated Resident Population ;  Male ;  Victoria ;
+  03. Estimated Resident Population ;  Male ;  Queensland ;
+  04. Estimated Resident Population ;  Male ;  South Australia ;
+  05. Estimated Resident Population ;  Male ;  Western Australia ;
+  06. Estimated Resident Population ;  Male ;  Tasmania ;
+  07. Estimated Resident Population ;  Male ;  Northern Territory ;
+  08. Estimated Resident Population ;  Male ;  Australian Capital Territory ;
+  09. Estimated Resident Population ;  Male ;  Australia ;
+  10. Estimated Resident Population ;  Female ;  New South Wales ;
+  11. Estimated Resident Population ;  Female ;  Victoria ;
+  12. Estimated Resident Population ;  Female ;  Queensland ;
+  13. Estimated Resident Population ;  Female ;  South Australia ;
+  14. Estimated Resident Population ;  Female ;  Western Australia ;
+  15. Estimated Resident Population ;  Female ;  Tasmania ;
+  16. Estimated Resident Population ;  Female ;  Northern Territory ;
+  17. Estimated Resident Population ;  Female ;  Australian Capital Territory ;
+  18. Estimated Resident Population ;  Female ;  Australia ;
+  19. Estimated Resident Population ;  Persons ;  New South Wales ;
+  20. Estimated Resident Population ;  Persons ;  Victoria ;
+  21. Estimated Resident Population ;  Persons ;  Queensland ;
+  22. Estimated Resident Population ;  Persons ;  South Australia ;
+  23. Estimated Resident Population ;  Persons ;  Western Australia ;
+  24. Estimated Resident Population ;  Persons ;  Tasmania ;
+  25. Estimated Resident Population ;  Persons ;  Northern Territory ;
+  26. Estimated Resident Population ;  Persons ;  Australian Capital Territory ;
+  27. Estimated Resident Population ;  Persons ;  Australia ;
+
+
+========================================
+AGE AND SEX WORKBOOKS
+========================================
+
+
+----------------------------------------
+3101051.xlsx - New South Wales 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101052.xlsx - Victoria 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101053.xlsx - Queensland 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101054.xlsx - South Australia 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101055.xlsx - Western Australia 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101056.xlsx - Tasmania 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101057.xlsx - Northern Territory 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+----------------------------------------
+3101058.xlsx - Australian Capital Territory 
+----------------------------------------
+
+  Sheet: Data1 
+  Rows: 65 
+  Columns: 251 
+  Series: 250 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 13750 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Male ;  0 ; 
+   - Estimated Resident Population ;  Male ;  1 ; 
+   - Estimated Resident Population ;  Male ;  2 ; 
+   - Estimated Resident Population ;  Male ;  3 ; 
+   - Estimated Resident Population ;  Male ;  4 ; 
+   - Estimated Resident Population ;  Male ;  5 ; 
+
+  Sheet: Data2 
+  Rows: 65 
+  Columns: 54 
+  Series: 53 
+  Observation period: 1971-06-01 to 2025-06-01 
+  Frequency: Annual 
+  Missing observation cells: 0 of 2915 (0.00%) 
+
+  Example series:
+   - Estimated Resident Population ;  Persons ;  48 ; 
+   - Estimated Resident Population ;  Persons ;  49 ; 
+   - Estimated Resident Population ;  Persons ;  50 ; 
+   - Estimated Resident Population ;  Persons ;  51 ; 
+   - Estimated Resident Population ;  Persons ;  52 ; 
+   - Estimated Resident Population ;  Persons ;  53 ; 
+
+
+========================================
+AGE/SEX STRUCTURE CHECK
+========================================
+New South Wales : Data1 structure matches NSW 
+Victoria : Data1 structure matches NSW 
+Queensland : Data1 structure matches NSW 
+South Australia : Data1 structure matches NSW 
+Western Australia : Data1 structure matches NSW 
+Tasmania : Data1 structure matches NSW 
+Northern Territory : Data1 structure matches NSW 
+Australian Capital Territory : Data1 structure matches NSW 
+
+
+========================================
+AUDIT COMPLETE
+========================================
+Report saved as: audit_report.txt 
