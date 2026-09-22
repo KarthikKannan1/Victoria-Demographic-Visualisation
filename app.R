@@ -520,6 +520,35 @@ style_girafe <- function(
 }
 
 
+# Match each graphics device to its own card's available space. This keeps
+# labels readable after sidebar/grid resizing without stretching the SVG.
+card_girafe <- function(plot, output_id, session, selection_input = NULL) {
+  plot_width <- session$clientData[[paste0("output_", output_id, "_width")]]
+  plot_height <- session$clientData[[paste0("output_", output_id, "_height")]]
+  req(plot_width > 0, plot_height > 0)
+
+  widget <- girafe(
+    ggobj = plot,
+    width_svg = plot_width / 96,
+    height_svg = plot_height / 96
+  )
+
+  if (!is.null(selection_input)) {
+    # Tag each new SVG for click routing, including when moved to fullscreen.
+    widget <- htmlwidgets::onRender(
+      widget,
+      "function(el, x, data) {
+        const svg = el.querySelector('.girafe_container_std > svg');
+        if (svg) svg.dataset.selectionInput = data.input_id;
+      }",
+      data = list(input_id = selection_input)
+    )
+  }
+
+  widget
+}
+
+
 # ------------------------------------------------------------
 # 5. UI
 # ------------------------------------------------------------
@@ -547,6 +576,28 @@ ui <- page_fluid(
       name = "viewport",
       content = "width=device-width, initial-scale=1"
     ),
+
+    # Only a chart click may change a control. Never use ggiraph's persistent
+    # *_selected inputs as commands: rerendering also emits those selections.
+    tags$script(HTML("
+      document.addEventListener('click', function(event) {
+        if (!(event.target instanceof Element)) return;
+        const mark = event.target.closest('svg[data-selection-input] [data-id]');
+        if (!mark) return;
+
+        const svg = mark.closest('svg[data-selection-input]');
+        const input = document.getElementById(svg.dataset.selectionInput);
+        const value = mark.getAttribute('data-id');
+        if (!input || !input.selectize ||
+            !Object.prototype.hasOwnProperty.call(input.selectize.options, value)) return;
+
+        // Bypass ggiraph's independent selection toggle. The control's change
+        // event notifies Shiny; input$state/input$quarter then drive every view.
+        // Updating here also avoids a delayed server reply undoing a newer choice.
+        event.stopPropagation();
+        if (input.value !== value) input.selectize.setValue(value);
+      }, true);
+    ")),
 
     tags$style(
 
@@ -583,6 +634,7 @@ ui <- page_fluid(
 
 
         .card {
+          background-color: white;
           border: none;
           border-radius: 10px;
           box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
@@ -600,9 +652,54 @@ ui <- page_fluid(
         }
 
 
-        .control-card .card-body {
-          padding-top: 0.8rem;
-          padding-bottom: 0.6rem;
+        .dashboard-shell {
+          display: grid;
+          grid-template-columns: 240px minmax(0, 1fr);
+          gap: 1.25rem;
+          padding-top: 1rem;
+          align-items: start;
+        }
+
+        .global-controls {
+          background: #EEEFEA;
+          border: 1px solid #E0E1DA;
+          border-radius: 10px;
+          padding: 1.1rem;
+          position: sticky;
+          top: 1rem;
+          overflow: visible;
+        }
+
+        .global-controls:focus-within {
+          /* Match Bootstrap's dropdown layer above the main-content controls.
+             Selectize's own dropdown z-index handles controls inside the sidebar. */
+          z-index: 1000;
+        }
+
+        .sidebar-heading {
+          font-size: 1rem;
+          font-weight: 600;
+          margin: 0 0 1.25rem;
+        }
+
+        .global-controls .control-group {
+          margin-bottom: 1.3rem;
+        }
+
+        .global-controls .radio + .radio {
+          margin-top: 0.65rem;
+        }
+
+        .sidebar-hint {
+          color: #777777;
+          font-size: 0.78rem;
+          border-top: 1px solid #DADCD4;
+          padding-top: 0.9rem;
+          margin: 0;
+        }
+
+        .dashboard-main {
+          min-width: 0;
         }
 
         .form-group {
@@ -611,11 +708,6 @@ ui <- page_fluid(
 
         .selectize-control {
           margin-bottom: 0;
-          z-index: 1000;
-        }
-
-        .selectize-dropdown {
-          z-index: 99999 !important;
         }
 
 
@@ -656,25 +748,54 @@ ui <- page_fluid(
         }
 
 
-        #driver_map {
-          min-height: 390px;
-        }
-
-        #driver_timeline {
-          min-height: 390px;
-        }
-
-        #interstate_momentum {
-          min-height: 370px;
-        }
-
         .bslib-grid {
           gap: 0.8rem;
         }
 
-        html, body {
-          max-width: 100%;
-          overflow-x: hidden;
+        .analysis-layout {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.8rem;
+          margin-top: 0.8rem;
+          align-items: stretch;
+        }
+
+        .analysis-layout > .card {
+          margin-bottom: 0;
+        }
+
+        .analysis-layout .card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .analysis-layout .girafe {
+          flex: 1 0 auto;
+          min-width: 0;
+          position: relative;
+        }
+
+        .analysis-layout #population_fingerprint {
+          /* Reserve a readable plot area; the timeline fills the rest of its row. */
+          flex: 0 0 450px;
+        }
+
+        .analysis-layout .girafe_container_std {
+          position: absolute;
+          inset: 0;
+          height: 100%;
+        }
+
+        .analysis-layout .girafe_container_std > svg {
+          max-width: 100% !important;
+          max-height: 100% !important;
+        }
+
+        .fingerprint-years {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.8rem;
         }
 
         body, .form-control, .selectize-input, .selectize-dropdown,
@@ -686,7 +807,7 @@ ui <- page_fluid(
           width: 100%;
           max-width: 1540px;
           margin: 0 auto;
-          padding-bottom: 1rem;
+          padding: 0 1rem 1rem;
         }
 
         .card, .card-body, .bslib-card, .bslib-grid > * {
@@ -712,10 +833,6 @@ ui <- page_fluid(
           font-size: 0.76rem;
           line-height: 1.35;
           margin: 0.05rem 0 0.25rem;
-        }
-
-        #population_fingerprint {
-          min-height: 390px;
         }
 
         .driver-legend {
@@ -751,17 +868,53 @@ ui <- page_fluid(
           line-height: 1.4;
         }
 
-        @media (max-width: 767.98px) {
+        @media (max-width: 1199.98px) {
+          .dashboard-shell {
+            grid-template-columns: 230px minmax(0, 1fr);
+            gap: 1rem;
+          }
+
+          .analysis-layout {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        @media (max-width: 991.98px) {
+          .dashboard-shell {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .global-controls {
+            position: static;
+          }
+
+          .sidebar-fields {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+          }
+
+          .sidebar-heading {
+            margin-bottom: 0.8rem;
+          }
+        }
+
+        @media (max-width: 575.98px) {
+          body > .container-fluid {
+            padding: 0 0.65rem 0.65rem;
+          }
+
+          .sidebar-fields {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0;
+          }
+
           .dashboard-title {
             font-size: 1.65rem;
           }
 
           .dashboard-subtitle {
             font-size: 0.92rem;
-          }
-
-          #driver_map, #driver_timeline, #interstate_momentum {
-            min-height: 360px;
           }
 
         }
@@ -773,427 +926,404 @@ ui <- page_fluid(
 
 
   # ----------------------------------------------------------
-  # DASHBOARD HEADER
+  # GLOBAL CONTROLS AND MAIN CONTENT
   # ----------------------------------------------------------
 
   tags$div(
+    class = "dashboard-shell",
 
-    class = "px-2 pt-3",
+    tags$aside(
+      class = "global-controls",
+      `aria-label` = "Global dashboard controls",
+      tags$h2(class = "sidebar-heading", "Explore"),
 
-    tags$h1(
-      class = "dashboard-title",
-      "Australia's Population Engine"
-    ),
-
-    tags$p(
-      class = "dashboard-subtitle",
-      "Explore what is driving population change across Australian states and territories."
-    )
-  ),
-
-
-  # ----------------------------------------------------------
-  # CONTROL BAR
-  # ----------------------------------------------------------
-
-  layout_columns(
-
-    col_widths = breakpoints(
-      xs = 12,
-      md = c(4, 4, 4)
-    ),
-
-
-    card(
-
-      class = "control-card",
-
-      card_body(
+      tags$div(
+        class = "sidebar-fields",
 
         tags$div(
-          class = "control-label",
-          "State or territory"
+          class = "control-group",
+          tags$label(class = "control-label", `for` = "state", "State or territory"),
+          selectInput(
+            inputId = "state",
+            label = NULL,
+            choices = state_choices,
+            selected = default_state,
+            width = "100%"
+          )
         ),
-
-        selectInput(
-          inputId = "state",
-          label = NULL,
-          choices = state_choices,
-          selected = default_state,
-          width = "100%"
-        )
-      )
-    ),
-
-
-    card(
-
-      class = "control-card",
-
-      card_body(
 
         tags$div(
-          class = "control-label",
-          "Quarter"
+          class = "control-group",
+          tags$label(class = "control-label", `for` = "quarter", "Quarter"),
+          selectInput(
+            inputId = "quarter",
+            label = NULL,
+            choices = quarter_choices,
+            selected = as.character(max(quarter_dates)),
+            width = "100%"
+          )
         ),
-
-        selectInput(
-          inputId = "quarter",
-          label = NULL,
-          choices = quarter_choices,
-          selected = as.character(
-            max(quarter_dates)
-          ),
-          width = "100%"
-        )
-      )
-    ),
-
-
-    card(
-
-      class = "control-card",
-
-      card_body(
 
         tags$div(
-          class = "control-label",
-          "Display values as"
-        ),
-
-        radioButtons(
-          inputId = "value_mode",
-          label = NULL,
-          choices = c(
-            "People" = "people",
-            "Per 1,000 residents" = "rate"
-          ),
-          selected = "people",
-          inline = TRUE
-        )
-      )
-    )
-  ),
-
-
-  # ----------------------------------------------------------
-  # KPI CARDS
-  # ----------------------------------------------------------
-
-  layout_columns(
-
-    col_widths = breakpoints(
-      xs = 12,
-      sm = c(6, 6),
-      lg = c(3, 3, 3, 3)
-    ),
-
-
-    card(
-
-      class = "kpi-card",
-
-      card_body(
-
-        tags$div(
-          class = "kpi-label",
-          "Population"
-        ),
-
-        tags$p(
-          class = "kpi-value",
-
-          textOutput(
-            "population_kpi",
-            inline = TRUE
+          class = "control-group",
+          tags$div(class = "control-label", id = "value-mode-label", "Display values as"),
+          tags$div(
+            role = "group",
+            `aria-labelledby` = "value-mode-label",
+            radioButtons(
+              inputId = "value_mode",
+              label = NULL,
+              choices = c(
+                "People" = "people",
+                "Per 1,000 residents" = "rate"
+              ),
+              selected = "people",
+              inline = FALSE
+            )
           )
         )
-      )
-    ),
-
-
-    card(
-
-      class = "kpi-card",
-
-      card_body(
-
-        tags$div(
-          class = "kpi-label",
-          "Quarterly change"
-        ),
-
-        tags$p(
-          class = "kpi-value",
-
-          textOutput(
-            "change_kpi",
-            inline = TRUE
-          )
-        )
-      )
-    ),
-
-
-    card(
-
-      class = "kpi-card",
-
-      card_body(
-
-        tags$div(
-          class = "kpi-label",
-          "Largest driver"
-        ),
-
-        tags$p(
-          class = "kpi-value",
-
-          textOutput(
-            "driver_kpi",
-            inline = TRUE
-          )
-        )
-      )
-    ),
-
-
-    card(
-
-      class = "kpi-card",
-
-      card_body(
-
-        tags$div(
-          class = "kpi-label",
-          "Selected area"
-        ),
-
-        tags$p(
-          class = "kpi-value",
-
-          textOutput(
-            "state_kpi",
-            inline = TRUE
-          )
-        )
-      )
-    )
-  ),
-
-
-  # ----------------------------------------------------------
-  # MAIN VISUALISATION AREA
-  # ----------------------------------------------------------
-
-  layout_columns(
-
-    col_widths = breakpoints(
-      xs = 12,
-      lg = c(6, 6)
-    ),
-
-
-    # --------------------------------------------------------
-    # GROWTH DRIVER MAP
-    # --------------------------------------------------------
-
-    card(
-
-      card_header(
-        "Growth Driver Map"
       ),
 
-      card_body(
+      tags$p(class = "sidebar-hint", "Click charts to explore.")
+    ),
+
+    tags$main(
+      class = "dashboard-main",
+
+      # ----------------------------------------------------------
+      # DASHBOARD HEADER
+      # ----------------------------------------------------------
+
+      tags$div(
+
+        class = "dashboard-header",
+
+        tags$h1(
+          class = "dashboard-title",
+          "Australia's Population Engine"
+        ),
 
         tags$p(
-          class = "chart-note",
-          "Colour shows the published component with the largest absolute contribution. Click a state to explore it."
+          class = "dashboard-subtitle",
+          "Explore what is driving population change across Australian states and territories."
+        )
+      ),
+
+
+      # ----------------------------------------------------------
+      # KPI CARDS
+      # ----------------------------------------------------------
+
+      layout_columns(
+
+        col_widths = breakpoints(
+          xs = 12,
+          sm = c(6, 6),
+          lg = c(3, 3, 3, 3)
         ),
 
-        girafeOutput(
-          outputId = "driver_map",
-          width = "100%",
-          height = "400px"
+
+        card(
+
+          class = "kpi-card",
+
+          card_body(
+
+            tags$div(
+              class = "kpi-label",
+              "Population"
+            ),
+
+            tags$p(
+              class = "kpi-value",
+
+              textOutput(
+                "population_kpi",
+                inline = TRUE
+              )
+            )
+          )
         ),
 
-        tags$div(
-          class = "driver-legend",
 
-          lapply(names(driver_colours), function(driver) {
-            tags$span(
-              class = "driver-legend-item",
+        card(
 
-              tags$span(
-                class = "driver-legend-swatch",
-                style = paste0(
-                  "background-color:",
-                  unname(driver_colours[[driver]]),
-                  ";"
+          class = "kpi-card",
+
+          card_body(
+
+            tags$div(
+              class = "kpi-label",
+              "Quarterly change"
+            ),
+
+            tags$p(
+              class = "kpi-value",
+
+              textOutput(
+                "change_kpi",
+                inline = TRUE
+              )
+            )
+          )
+        ),
+
+
+        card(
+
+          class = "kpi-card",
+
+          card_body(
+
+            tags$div(
+              class = "kpi-label",
+              "Largest driver"
+            ),
+
+            tags$p(
+              class = "kpi-value",
+
+              textOutput(
+                "driver_kpi",
+                inline = TRUE
+              )
+            )
+          )
+        ),
+
+
+        card(
+
+          class = "kpi-card",
+
+          card_body(
+
+            tags$div(
+              class = "kpi-label",
+              "Selected area"
+            ),
+
+            tags$p(
+              class = "kpi-value",
+
+              textOutput(
+                "state_kpi",
+                inline = TRUE
+              )
+            )
+          )
+        )
+      ),
+
+
+      # ----------------------------------------------------------
+      # MAIN VISUALISATION AREA
+      # ----------------------------------------------------------
+
+      tags$div(
+
+        class = "analysis-layout",
+
+
+        # --------------------------------------------------------
+        # GROWTH DRIVER MAP
+        # --------------------------------------------------------
+
+        card(
+
+          card_header(
+            "Growth Driver Map"
+          ),
+
+          card_body(
+
+            tags$p(
+              class = "chart-note",
+              "Colour shows the published component with the largest absolute contribution. Click a state to explore it."
+            ),
+
+            girafeOutput(
+              outputId = "driver_map",
+              width = "100%",
+              height = "360px"
+            ),
+
+            tags$div(
+              class = "driver-legend",
+
+              lapply(names(driver_colours), function(driver) {
+                tags$span(
+                  class = "driver-legend-item",
+
+                  tags$span(
+                    class = "driver-legend-swatch",
+                    style = paste0(
+                      "background-color:",
+                      unname(driver_colours[[driver]]),
+                      ";"
+                    )
+                  ),
+
+                  unname(driver_labels[[driver]])
+                )
+              })
+            )
+          )
+        ),
+
+
+        # --------------------------------------------------------
+        # INTERSTATE MOMENTUM
+        # --------------------------------------------------------
+
+        card(
+
+          card_header(
+            "Interstate Momentum"
+          ),
+
+          card_body(
+
+            tags$p(
+              class = "chart-note",
+              "Compare net interstate migration across states and territories. Click a bar to explore that area."
+            ),
+
+            girafeOutput(
+              outputId = "interstate_momentum",
+              width = "100%",
+              height = "360px"
+            )
+          )
+        ),
+
+
+        # --------------------------------------------------------
+        # DRIVER TIMELINE
+        # --------------------------------------------------------
+
+        card(
+
+          card_header(
+            "Driver Timeline"
+          ),
+
+          card_body(
+
+            tags$p(
+              class = "chart-note",
+              "Hover for values. Click a quarter to update the entire dashboard."
+            ),
+
+            girafeOutput(
+              outputId = "driver_timeline",
+              width = "100%",
+              height = "450px"
+            )
+          )
+        ),
+
+
+        # --------------------------------------------------------
+        # POPULATION FINGERPRINT
+        # --------------------------------------------------------
+
+        card(
+
+          card_header(
+            "Population Fingerprint"
+          ),
+
+          card_body(
+
+            tags$p(
+              class = "chart-note",
+              "Compare the annual age and sex structure of the selected area."
+            ),
+
+            tags$p(
+              class = "chart-note fingerprint-year-note",
+
+              textOutput(
+                "fingerprint_year_note",
+                inline = TRUE
+              )
+            ),
+
+
+            tags$div(
+
+              class = "fingerprint-years",
+
+
+              tags$div(
+
+                class = "year-control",
+
+                tags$div(
+                  class = "control-label",
+                  "Year A"
+                ),
+
+                selectInput(
+                  inputId = "year_a",
+                  label = NULL,
+                  choices = age_year_choices,
+                  selected = default_year_a,
+                  width = "100%"
                 )
               ),
 
-              unname(driver_labels[[driver]])
-            )
-          })
-        )
-      )
-    ),
 
+              tags$div(
 
-    # --------------------------------------------------------
-    # DRIVER TIMELINE
-    # --------------------------------------------------------
+                class = "year-control",
 
-    card(
+                tags$div(
+                  class = "control-label",
+                  "Year B"
+                ),
 
-      card_header(
-        "Driver Timeline"
-      ),
-
-      card_body(
-
-        tags$p(
-          class = "chart-note",
-          "Hover for values. Click a quarter to update the entire dashboard."
-        ),
-
-        girafeOutput(
-          outputId = "driver_timeline",
-          width = "100%",
-          height = "400px"
-        )
-      )
-    ),
-
-
-    # --------------------------------------------------------
-    # INTERSTATE MOMENTUM
-    # --------------------------------------------------------
-
-    card(
-
-      card_header(
-        "Interstate Momentum"
-      ),
-
-      card_body(
-
-        tags$p(
-          class = "chart-note",
-          "Compare net interstate migration across states and territories. Click a bar to explore that area."
-        ),
-
-        girafeOutput(
-          outputId = "interstate_momentum",
-          width = "100%",
-          height = "380px"
-        )
-      )
-    ),
-
-
-    # --------------------------------------------------------
-    # POPULATION FINGERPRINT
-    # --------------------------------------------------------
-
-    card(
-
-      card_header(
-        "Population Fingerprint"
-      ),
-
-      card_body(
-
-        tags$p(
-          class = "chart-note",
-          "Compare the annual age and sex structure of the selected area."
-        ),
-
-        tags$p(
-          class = "chart-note fingerprint-year-note",
-
-          textOutput(
-            "fingerprint_year_note",
-            inline = TRUE
-          )
-        ),
-
-
-        layout_columns(
-
-          col_widths = breakpoints(
-            xs = 12,
-            sm = c(6, 6)
-          ),
-
-
-          tags$div(
-
-            class = "year-control",
-
-            tags$div(
-              class = "control-label",
-              "Year A"
+                selectInput(
+                  inputId = "year_b",
+                  label = NULL,
+                  choices = age_year_choices,
+                  selected = default_year_b,
+                  width = "100%"
+                )
+              )
             ),
 
-            selectInput(
-              inputId = "year_a",
-              label = NULL,
-              choices = age_year_choices,
-              selected = default_year_a,
-              width = "100%"
-            )
-          ),
-
-
-          tags$div(
-
-            class = "year-control",
-
-            tags$div(
-              class = "control-label",
-              "Year B"
+            tags$p(
+              class = "availability-note",
+              paste0(
+                "Annual age profiles available to ",
+                max(age_years),
+                "."
+              )
             ),
 
-            selectInput(
-              inputId = "year_b",
-              label = NULL,
-              choices = age_year_choices,
-              selected = default_year_b,
-              width = "100%"
+
+            girafeOutput(
+              outputId = "population_fingerprint",
+              width = "100%",
+              height = "450px"
             )
           )
+        )
+      ),
+
+      tags$footer(
+        class = "dashboard-footer",
+
+        tags$div(
+          "Source: Australian Bureau of Statistics."
         ),
 
-        tags$p(
-          class = "availability-note",
-          paste0(
-            "Annual age profiles available to ",
-            max(age_years),
-            "."
-          )
-        ),
-
-
-        girafeOutput(
-          outputId = "population_fingerprint",
-          width = "100%",
-          height = "390px"
+        tags$div(
+          "Population components are shown as published and may not sum exactly to reported quarterly population change."
         )
       )
-    )
-  ),
-
-  tags$footer(
-    class = "dashboard-footer",
-
-    tags$div(
-      "Source: Australian Bureau of Statistics."
-    ),
-
-    tags$div(
-      "Population components are shown as published and may not sum exactly to reported quarterly population change."
     )
   )
 )
@@ -1306,35 +1436,6 @@ server <- function(input, output, session) {
       " shown in colour"
     )
   })
-
-
-  # Use the same guarded state-selection link for both clickable charts.
-  link_chart_to_state <- function(input_id) {
-
-    observeEvent(
-      input[[input_id]],
-      {
-        selected_state <- input[[input_id]]
-
-        if (
-          length(selected_state) == 1 &&
-          selected_state %in% state_choices &&
-          !identical(selected_state, input$state)
-        ) {
-          updateSelectInput(
-            session = session,
-            inputId = "state",
-            selected = selected_state
-          )
-        }
-      },
-      ignoreInit = TRUE
-    )
-  }
-
-
-  link_chart_to_state("driver_map_selected")
-  link_chart_to_state("interstate_momentum_selected")
 
 
   # ==========================================================
@@ -1649,10 +1750,8 @@ server <- function(input, output, session) {
       )
 
 
-    widget <- girafe(
-      ggobj = map_plot,
-      width_svg = 7,
-      height_svg = 5
+    widget <- card_girafe(
+      map_plot, "driver_map", session, selection_input = "state"
     )
 
 
@@ -1949,10 +2048,8 @@ server <- function(input, output, session) {
       )
 
 
-    widget <- girafe(
-      ggobj = timeline_plot,
-      width_svg = 7,
-      height_svg = 5
+    widget <- card_girafe(
+      timeline_plot, "driver_timeline", session, selection_input = "quarter"
     )
 
 
@@ -1970,44 +2067,6 @@ server <- function(input, output, session) {
       )
     )
   })
-
-
-  # ----------------------------------------------------------
-  # TIMELINE → QUARTER LINK
-  # ----------------------------------------------------------
-
-  observeEvent(
-
-    input$driver_timeline_selected,
-
-    {
-
-      selected_date <-
-        input$driver_timeline_selected
-
-
-      if (
-        length(selected_date) == 1 &&
-        selected_date %in%
-          as.character(
-            quarter_dates
-          ) &&
-        !identical(
-          selected_date,
-          input$quarter
-        )
-      ) {
-
-        updateSelectInput(
-          session = session,
-          inputId = "quarter",
-          selected = selected_date
-        )
-      }
-    },
-
-    ignoreInit = TRUE
-  )
 
 
   # ==========================================================
@@ -2196,6 +2255,10 @@ server <- function(input, output, session) {
     }
 
 
+    compact_plot <- isTRUE(
+      session$clientData$output_interstate_momentum_width < 420
+    )
+
     interstate_plot <- ggplot(
 
       data,
@@ -2268,7 +2331,13 @@ server <- function(input, output, session) {
 
       labs(
         subtitle = "Net loss  <---        zero        --->  Net gain",
-        x = x_axis_label,
+        x = paste(
+          strwrap(
+            x_axis_label,
+            width = if (compact_plot) 12 else 80
+          ),
+          collapse = "\n"
+        ),
         y = NULL
       ) +
 
@@ -2294,7 +2363,9 @@ server <- function(input, output, session) {
 
         axis.text.x = element_text(
           size = 8,
-          colour = "#666666"
+          colour = "#666666",
+          angle = if (compact_plot) 45 else 0,
+          hjust = if (compact_plot) 1 else 0.5
         ),
 
         axis.title.x = element_text(
@@ -2323,10 +2394,8 @@ server <- function(input, output, session) {
       )
 
 
-    widget <- girafe(
-      ggobj = interstate_plot,
-      width_svg = 7,
-      height_svg = 4.5
+    widget <- card_girafe(
+      interstate_plot, "interstate_momentum", session, selection_input = "state"
     )
 
 
@@ -2683,10 +2752,8 @@ server <- function(input, output, session) {
       )
 
 
-    widget <- girafe(
-      ggobj = fingerprint_plot,
-      width_svg = 7,
-      height_svg = 4.8
+    widget <- card_girafe(
+      fingerprint_plot, "population_fingerprint", session
     )
 
 
