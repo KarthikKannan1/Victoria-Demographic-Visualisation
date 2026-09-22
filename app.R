@@ -1,13 +1,8 @@
-# ============================================================
-# AUSTRALIA'S POPULATION ENGINE
-# GEOM90007 - Assignment 2
-# ============================================================
+# GEOM90007 Assignment 2 - AUSTRALIA'S POPULATION ENGINE
+# Karthik Kannan (1739619)
 
 
-# ------------------------------------------------------------
-# 1. PACKAGES
-# ------------------------------------------------------------
-
+# 1. LOAD PACKAGES - Load the packages used for the dashboard, charts and map.
 library(shiny)
 library(bslib)
 library(dplyr)
@@ -23,8 +18,8 @@ library(ozmaps)
 # 2. DATA LOADING
 # ------------------------------------------------------------
 
-# Locate each file either inside Data/ (development layout) or beside app.R
-# (submission ZIP layout). The working directory must contain app.R.
+# Look for the files in Data/ or beside app.R so both the development
+# folder and the final submission layout work.
 find_data_file <- function(filename) {
   candidates <- c(file.path("Data", filename), filename)
   matches <- candidates[file.exists(candidates)]
@@ -58,6 +53,7 @@ read_data_file <- function(filename) {
 }
 
 
+# Check that each dataset has the columns the dashboard needs.
 validate_columns <- function(data, dataset_name, required_columns) {
   if (!is.data.frame(data)) {
     stop(sprintf("'%s' must contain a data frame.", dataset_name), call. = FALSE)
@@ -105,6 +101,7 @@ validate_columns(
 # 3. DATA PREPARATION
 # ------------------------------------------------------------
 
+# Keep dates consistent before using them in filters and joins.
 normalise_date <- function(values, dataset_name) {
   converted <- if (inherits(values, "Date")) {
     values
@@ -128,8 +125,7 @@ population$date <- normalise_date(population$date, "population.rds")
 age_profiles$date <- normalise_date(age_profiles$date, "age_profiles.rds")
 
 
-# Convert the ABS age labels into numeric ages.
-# This also handles labels such as "100+" if present.
+# Read the age number from ABS labels, including labels such as "100+".
 age_profiles <- age_profiles %>%
   mutate(
     age_numeric = suppressWarnings(
@@ -144,10 +140,8 @@ age_profiles <- age_profiles %>%
   )
 
 
-# Aggregate single-year ages into five-year age groups.
-# This improves readability in the population pyramid.
+# Group single ages into five-year bands so the pyramid is easier to read.
 age_profiles_grouped <- age_profiles %>%
-
   filter(
     sex %in% c(
       "Male",
@@ -155,15 +149,12 @@ age_profiles_grouped <- age_profiles %>%
     ),
     !is.na(age_numeric)
   ) %>%
-
   mutate(
-
     age_group_start = ifelse(
       age_numeric >= 100,
       100,
       floor(age_numeric / 5) * 5
     ),
-
     age_group = ifelse(
       age_group_start == 100,
       "100+",
@@ -177,7 +168,6 @@ age_profiles_grouped <- age_profiles %>%
       )
     )
   ) %>%
-
   group_by(
     state,
     date,
@@ -185,7 +175,6 @@ age_profiles_grouped <- age_profiles %>%
     age_group_start,
     age_group
   ) %>%
-
   summarise(
     population = if (
       all(is.na(population))
@@ -196,30 +185,26 @@ age_profiles_grouped <- age_profiles %>%
     },
     .groups = "drop"
   ) %>%
-
   mutate(
     year = as.integer(format(date, "%Y"))
   )
 
 
-# Define the chronological order of age groups.
+# Keep the age groups in youngest-to-oldest order for the pyramid.
 age_group_levels <- age_profiles_grouped %>%
-
   distinct(
     age_group_start,
     age_group
   ) %>%
-
   arrange(
     age_group_start
   ) %>%
-
   pull(
     age_group
   )
 
 
-# Extract available annual age-profile years.
+# Offer only the years included in the annual age data.
 age_years <- sort(
   unique(
     as.integer(
@@ -244,7 +229,7 @@ age_year_choices <- setNames(
 )
 
 
-# Choose sensible default comparison years.
+# Compare 1981 with the latest year, using the earliest available year if needed.
 default_year_a <- if (
   1981 %in% age_years
 ) {
@@ -269,15 +254,12 @@ map_states <- ozmap_data(
   "states",
   quiet = TRUE
 ) %>%
-
   filter(
     NAME != "Other Territories"
   ) %>%
-
   rename(
     state = NAME
   ) %>%
-
   st_transform(
     4326
   )
@@ -349,7 +331,7 @@ driver_labels <- c(
 )
 
 
-# Use a separate muted palette for the population pyramid.
+# Use muted colours for male and female age profiles.
 sex_colours <- c(
   "Male" = "#577590",
   "Female" = "#B56576"
@@ -360,32 +342,30 @@ sex_colours <- c(
 # 4. HELPER FUNCTIONS
 # ------------------------------------------------------------
 
-# Return NA when a rate cannot be calculated safely.
+# Convert counts to rates per 1,000 residents when population is available.
+# Leave invalid rates as NA so the dashboard can show "Not available".
 safe_rate <- function(value, population_value) {
-
   result <- rep(NA_real_, length(value))
 
   valid <-
     is.finite(value) &
-    is.finite(population_value) &
-    population_value > 0
+      is.finite(population_value) &
+      population_value > 0
 
   result[valid] <-
     value[valid] /
-    population_value[valid] *
-    1000
+      population_value[valid] *
+      1000
 
   result
 }
 
 
 format_people <- function(value, show_plus = TRUE) {
-
   result <- rep("Not available", length(value))
   valid <- is.finite(value)
 
   if (any(valid)) {
-
     formatter <- if (show_plus) {
       label_number(
         accuracy = 1,
@@ -410,7 +390,6 @@ format_rate <- function(
   value,
   suffix = " per 1,000 residents"
 ) {
-
   result <- rep("Not available", length(value))
   valid <- is.finite(value)
 
@@ -436,7 +415,6 @@ format_metric <- function(
   value_mode,
   rate_suffix = " per 1,000 residents"
 ) {
-
   if (identical(value_mode, "rate")) {
     format_rate(
       safe_rate(value, population_value),
@@ -449,7 +427,6 @@ format_metric <- function(
 
 
 format_population <- function(value) {
-
   result <- rep("Not available", length(value))
   valid <- is.finite(value) & value >= 0
 
@@ -477,6 +454,7 @@ first_finite_or_na <- function(value) {
 }
 
 
+# Keep tooltip styling consistent across the charts.
 tooltip_css <- paste(
   "background-color:#222222;",
   "color:white;",
@@ -490,6 +468,7 @@ tooltip_css <- paste(
 )
 
 
+# Apply the shared hover, selection and tooltip behaviour.
 style_girafe <- function(
   widget,
   hover_css,
@@ -497,7 +476,6 @@ style_girafe <- function(
   selected = character(),
   selection_css = ""
 ) {
-
   girafe_options(
     widget,
     opts_sizing(
@@ -520,8 +498,8 @@ style_girafe <- function(
 }
 
 
-# Match each graphics device to its own card's available space. This keeps
-# labels readable after sidebar/grid resizing without stretching the SVG.
+# Size each chart to its card so labels stay readable when the window is resized.
+# Connect clickable marks to the matching sidebar control.
 card_girafe <- function(plot, output_id, session, selection_input = NULL) {
   plot_width <- session$clientData[[paste0("output_", output_id, "_width")]]
   plot_height <- session$clientData[[paste0("output_", output_id, "_height")]]
@@ -534,18 +512,37 @@ card_girafe <- function(plot, output_id, session, selection_input = NULL) {
   )
 
   if (!is.null(selection_input)) {
-    # Tag each new SVG for click routing, including when moved to fullscreen.
+    # Keep the click link when a chart is opened fullscreen.
     widget <- htmlwidgets::onRender(
       widget,
       "function(el, x, data) {
         const svg = el.querySelector('.girafe_container_std > svg');
-        if (svg) svg.dataset.selectionInput = data.input_id;
+        if (svg) {
+          svg.dataset.selectionInput = data.input_id;
+          svg.dataset.outputId = el.id;
+        }
+        window.populationCharts.render(el);
       }",
       data = list(input_id = selection_input)
     )
   }
 
   widget
+}
+
+
+# Keep the help buttons keyboard-accessible without adding more text to the controls.
+control_info <- function(label, text) {
+  bslib::tooltip(
+    tags$button(
+      type = "button",
+      class = "control-info",
+      `aria-label` = paste("About", label),
+      tags$span(`aria-hidden` = "true", "i")
+    ),
+    text,
+    options = list(trigger = "hover focus click", container = "body")
+  )
 }
 
 
@@ -562,7 +559,6 @@ app_theme <- bs_theme(
 
 
 ui <- page_fluid(
-
   theme = app_theme,
 
 
@@ -571,14 +567,13 @@ ui <- page_fluid(
   # ----------------------------------------------------------
 
   tags$head(
-
     tags$meta(
       name = "viewport",
       content = "width=device-width, initial-scale=1"
     ),
 
-    # Only a chart click may change a control. Never use ggiraph's persistent
-    # *_selected inputs as commands: rerendering also emits those selections.
+    # Send chart clicks through the dropdowns so they stay the source of truth.
+    # ggiraph also emits selections on redraw, so those are not treated as clicks.
     tags$script(HTML("
       document.addEventListener('click', function(event) {
         if (!(event.target instanceof Element)) return;
@@ -591,16 +586,232 @@ ui <- page_fluid(
         if (!input || !input.selectize ||
             !Object.prototype.hasOwnProperty.call(input.selectize.options, value)) return;
 
-        // Bypass ggiraph's independent selection toggle. The control's change
-        // event notifies Shiny; input$state/input$quarter then drive every view.
-        // Updating here also avoids a delayed server reply undoing a newer choice.
+        // Change the dropdown itself and let Shiny update the views.
+        // Skip ggiraph's toggle so an old chart cannot undo a newer choice.
         event.stopPropagation();
         if (input.value !== value) input.selectize.setValue(value);
       }, true);
     ")),
 
-    tags$style(
+    # Play through the existing quarter choices using the same dropdown.
+    # Store only playback status here, not a separate selected quarter.
+    tags$script(HTML("
+      document.addEventListener('DOMContentLoaded', function() {
+        const button = document.getElementById('quarter_play');
+        const quarter = document.getElementById('quarter');
+        const endQuarter = document.getElementById('quarter_end');
+        const boundaryHint = document.getElementById('quarter_boundary_hint');
+        const interval = 1100;
+        let playing = false;
+        let timer = null;
+        let advancing = false;
 
+        function stopPlayback() {
+          playing = false;
+          window.clearTimeout(timer);
+          timer = null;
+          button.textContent = 'Play';
+          button.setAttribute('aria-label', 'Play quarter animation');
+          button.setAttribute('aria-pressed', 'false');
+        }
+
+        // The end quarter only limits playback; it never changes the current quarter.
+        function checkBoundary() {
+          const canPlay = quarter.value && endQuarter.value && quarter.value < endQuarter.value;
+          if (!canPlay) stopPlayback();
+          button.disabled = !canPlay;
+          boundaryHint.hidden = !!canPlay;
+          if (canPlay) button.removeAttribute('aria-describedby');
+          else button.setAttribute('aria-describedby', boundaryHint.id);
+        }
+
+        function showQuarter(value) {
+          advancing = true;
+          try {
+            quarter.selectize.setValue(value);
+          } finally {
+            advancing = false;
+          }
+        }
+
+        function advanceQuarter() {
+          if (!playing) return;
+          const choices = Object.keys(quarter.selectize.options).sort();
+          const index = choices.indexOf(quarter.value);
+          const endIndex = choices.indexOf(endQuarter.value);
+          if (index < 0 || endIndex < 0 || index >= endIndex) {
+            stopPlayback();
+            return;
+          }
+          // Let the current charts finish before requesting another quarter.
+          if (document.documentElement.classList.contains('shiny-busy')) {
+            timer = window.setTimeout(advanceQuarter, interval);
+            return;
+          }
+          showQuarter(choices[index + 1]);
+          if (index + 1 >= endIndex) stopPlayback();
+          else timer = window.setTimeout(advanceQuarter, interval);
+        }
+
+        button.addEventListener('click', function() {
+          if (playing) {
+            stopPlayback();
+            return;
+          }
+          if (!quarter.selectize) return;
+          const choices = Object.keys(quarter.selectize.options).sort();
+          const index = choices.indexOf(quarter.value);
+          const endIndex = choices.indexOf(endQuarter.value);
+          if (index < 0 || endIndex < 0 || index >= endIndex) return;
+          playing = true;
+          button.textContent = 'Pause';
+          button.setAttribute('aria-label', 'Pause quarter animation');
+          button.setAttribute('aria-pressed', 'true');
+          timer = window.setTimeout(advanceQuarter, interval);
+        });
+
+        // A manual dropdown choice or timeline click takes control immediately.
+        $(quarter).on('change.quarterPlayback', function() {
+          if (!advancing) stopPlayback();
+          checkBoundary();
+        });
+        $(endQuarter).on('change.quarterPlayback', checkBoundary);
+        $(document).on('shiny:disconnected.quarterPlayback', stopPlayback);
+        checkBoundary();
+      });
+    ")),
+
+    # Let keyboard and touch users dismiss help without changing a control.
+    tags$script(HTML("
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          document.querySelectorAll('bslib-tooltip:has(.control-info)').forEach(tip => tip.hide());
+        }
+      });
+      document.addEventListener('click', function(event) {
+        document.querySelectorAll('bslib-tooltip:has(.control-info)').forEach(tip => {
+          if (!tip.contains(event.target)) tip.hide();
+        });
+      });
+    ")),
+
+    # Keep the timeline in place and ease changes between the map/bar frames.
+    tags$script(HTML("
+      window.populationCharts = (function() {
+        const previous = new Map();
+        const duration = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350;
+        const svgFor = id => document.querySelector('#' + id + ' .girafe_container_std > svg') ||
+          document.querySelector('svg[data-output-id=' + id + ']');
+
+        function movePlayhead(svg, animate) {
+          if (!svg) return;
+          const quarter = document.getElementById('quarter').value;
+          const points = Array.from(svg.querySelectorAll('circle[data-id]'));
+          const anchors = points.slice().sort((a, b) => a.dataset.id.localeCompare(b.dataset.id));
+          if (anchors.length < 2) return;
+          const first = anchors[0], last = anchors[anchors.length - 1];
+          const start = Date.parse(first.dataset.id), end = Date.parse(last.dataset.id);
+          if (end === start || !Number.isFinite(Date.parse(quarter))) return;
+          const x = Number(first.getAttribute('cx')) +
+            (Date.parse(quarter) - start) / (end - start) *
+            (Number(last.getAttribute('cx')) - Number(first.getAttribute('cx')));
+
+          svg.querySelectorAll('[data-id=quarter-playhead-reference]').forEach(line => {
+            line.style.pointerEvents = 'none';
+            line.style.transition = animate ? 'transform ' + duration() + 'ms ease-out' : 'none';
+            line.style.transform = 'translateX(' + (x - Number(line.getAttribute('x1'))) + 'px)';
+          });
+          // Highlight the points for the quarter shown in the dropdown.
+          points.forEach(point => point.classList.toggle('select_data_' + svg.id, point.dataset.id === quarter));
+        }
+
+        function remember(id) {
+          const svg = svgFor(id);
+          if (!svg) return;
+          const marks = new Map(), labels = new Map();
+          svg.querySelectorAll('[data-id]').forEach(mark => {
+            const box = mark.getBBox();
+            marks.set(mark.dataset.id, {
+              x: box.x, y: box.y, width: box.width, height: box.height,
+              fill: getComputedStyle(mark).fill
+            });
+          });
+          svg.querySelectorAll('text').forEach(label => {
+            if (marks.has(label.textContent)) labels.set(label.textContent, label.getBBox().y);
+          });
+          // Remember the old positions just long enough to draw the next frame.
+          previous.set(id, {viewBox: svg.getAttribute('viewBox'), marks, labels});
+        }
+
+        function render(el) {
+          const svg = svgFor(el.id);
+          if (!svg) return;
+          if (el.id === 'driver_timeline') {
+            movePlayhead(svg, false);
+            return;
+          }
+          const old = previous.get(el.id);
+          previous.delete(el.id);
+          const zero = svg.querySelector('[data-id=interstate-zero-reference]');
+          if (zero) zero.style.pointerEvents = 'none';
+          if (!old || !duration() || old.viewBox !== svg.getAttribute('viewBox')) return;
+          const timing = {duration: duration(), easing: 'ease-out'};
+
+          if (el.id === 'driver_map') {
+            svg.querySelectorAll('path[data-id]').forEach(mark => {
+              const before = old.marks.get(mark.dataset.id);
+              if (before) mark.animate([{fill: before.fill}, {fill: getComputedStyle(mark).fill}], timing);
+            });
+          } else if (el.id === 'interstate_momentum') {
+            const beforeZero = old.marks.get('interstate-zero-reference');
+            const zeroX = zero ? zero.getBBox().x : null;
+            svg.querySelectorAll('rect[data-id]').forEach(mark => {
+              const before = old.marks.get(mark.dataset.id);
+              if (!before) return;
+              const after = mark.getBBox();
+              const frame = box => ({x: box.x + 'px', y: box.y + 'px', width: box.width + 'px', height: box.height + 'px'});
+              const frames = [frame(before)];
+              // A change from loss to gain should pass through zero width.
+              if (beforeZero && zeroX !== null &&
+                  (before.x < beforeZero.x - 0.1) !== (after.x < zeroX - 0.1) && before.width + after.width > 0) {
+                const fraction = before.width / (before.width + after.width);
+                frames.push({...frame({
+                  x: beforeZero.x + (zeroX - beforeZero.x) * fraction,
+                  y: before.y + (after.y - before.y) * fraction,
+                  width: 0, height: before.height + (after.height - before.height) * fraction
+                }), offset: fraction});
+              }
+              frames.push(frame(after));
+              mark.animate(frames, timing);
+            });
+            // Move the labels with their bars, and keep the zero line aligned.
+            svg.querySelectorAll('text').forEach(label => {
+              const y = old.labels.get(label.textContent);
+              if (y !== undefined) label.animate([
+                {transform: 'translateY(' + (y - label.getBBox().y) + 'px)'},
+                {transform: 'translateY(0px)'}
+              ], timing);
+            });
+            if (zero && beforeZero) zero.animate([
+              {transform: 'translateX(' + (beforeZero.x - zeroX) + 'px)'},
+              {transform: 'translateX(0px)'}
+            ], timing);
+          }
+        }
+
+        $(document).on('shiny:value.quarterMotion', function(event) {
+          if (['driver_map', 'interstate_momentum'].includes(event.name)) remember(event.name);
+        });
+        $(document).on('shiny:error.quarterMotion', function(event) {
+          previous.delete(event.name);
+        });
+        $(document).on('change.quarterMotion', '#quarter', function() {
+          movePlayhead(svgFor('driver_timeline'), true);
+        });
+        return {render};
+      })();
+    ")),
+    tags$style(
       HTML(
         "
 
@@ -671,19 +882,81 @@ ui <- page_fluid(
         }
 
         .global-controls:focus-within {
-          /* Match Bootstrap's dropdown layer above the main-content controls.
-             Selectize's own dropdown z-index handles controls inside the sidebar. */
+          /* Keep an open sidebar menu above the chart cards.
+             Selectize already places it above the other sidebar controls. */
           z-index: 1000;
         }
 
-        .sidebar-heading {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 1.25rem;
+.quarter-label-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.quarter-label-row .control-label {
+  margin-bottom: 0;
+}
+
+#quarter_play {
+  font-size: 0.78rem;
+  padding: 0.1rem 0.4rem;
+}
+
+/* Keep Play beside the Play until label. */
+.playback-end-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.playback-end-label-row .control-label {
+  margin-bottom: 0;
+}
+
+.playback-end-label-row #quarter_play {
+  flex: 0 0 auto;
+}
+
+        .control-info {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 1.1rem;
+          height: 1.1rem;
+          padding: 0;
+          margin-left: 0.25rem;
+          border: 1px solid #888888;
+          border-radius: 50%;
+          background: transparent;
+          color: #666666;
+          font-size: 0.72rem;
+          line-height: 1;
+          text-transform: none;
+          letter-spacing: normal;
+          vertical-align: middle;
         }
 
-        .global-controls .control-group {
-          margin-bottom: 1.3rem;
+        .control-info:focus-visible {
+          outline: 2px solid #2C6EAA;
+          outline-offset: 2px;
+        }
+
+        .control-label label {
+          font: inherit;
+          margin: 0;
+        }
+
+        .playback-end {
+          margin-top: 0.65rem;
+        }
+
+        #quarter_boundary_hint {
+          color: #666666;
+          font-size: 0.75rem;
+          line-height: 1.3;
+          margin: 0.35rem 0 0;
         }
 
         .global-controls .radio + .radio {
@@ -776,8 +1049,14 @@ ui <- page_fluid(
           position: relative;
         }
 
+        /* Keep the current charts visible while Shiny prepares the next quarter. */
+        #driver_map.recalculating, #interstate_momentum.recalculating,
+        #driver_timeline.recalculating {
+          opacity: 1;
+        }
+
         .analysis-layout #population_fingerprint {
-          /* Reserve a readable plot area; the timeline fills the rest of its row. */
+          /* Leave room for all 21 ages; the timeline fills the other card. */
           flex: 0 0 450px;
         }
 
@@ -931,18 +1210,19 @@ ui <- page_fluid(
 
   tags$div(
     class = "dashboard-shell",
-
     tags$aside(
       class = "global-controls",
       `aria-label` = "Global dashboard controls",
       tags$h2(class = "sidebar-heading", "Explore"),
-
       tags$div(
         class = "sidebar-fields",
-
         tags$div(
           class = "control-group",
-          tags$label(class = "control-label", `for` = "state", "State or territory"),
+          tags$label(
+            class = "control-label",
+            `for` = "state",
+            "State or territory"
+          ),
           selectInput(
             inputId = "state",
             label = NULL,
@@ -951,22 +1231,86 @@ ui <- page_fluid(
             width = "100%"
           )
         ),
-
         tags$div(
           class = "control-group",
-          tags$label(class = "control-label", `for` = "quarter", "Quarter"),
+
+          # Current quarter and playback starting point.
+          tags$div(
+            class = "quarter-label-row",
+            tags$div(
+              class = "control-label",
+              tags$label(
+                `for` = "quarter",
+                "Quarter"
+              ),
+              control_info(
+                "Quarter",
+                "Choose the quarter you want to explore. This is also the starting point when playback begins."
+              )
+            )
+          ),
           selectInput(
             inputId = "quarter",
             label = NULL,
             choices = quarter_choices,
             selected = as.character(max(quarter_dates)),
             width = "100%"
+          ),
+
+          # Choose where playback should stop.
+          tags$div(
+            class = "playback-end",
+            tags$div(
+              class = "playback-end-label-row",
+              tags$div(
+                class = "control-label",
+                tags$label(
+                  `for` = "quarter_end",
+                  "Play until"
+                ),
+                control_info(
+                  "Play until",
+                  "Choose the final quarter for playback. Press Play to move from the selected Quarter to this date."
+                )
+              ),
+              tags$button(
+                id = "quarter_play",
+                type = "button",
+                class = "btn btn-outline-secondary btn-sm",
+                `aria-label` = "Play quarter animation",
+                `aria-pressed` = "false",
+                `aria-describedby` = "quarter_boundary_hint",
+                "Play"
+              )
+            ),
+            selectInput(
+              inputId = "quarter_end",
+              label = NULL,
+              choices = quarter_choices,
+              selected = as.character(max(quarter_dates)),
+              width = "100%"
+            ),
+            tags$p(
+              id = "quarter_boundary_hint",
+              role = "status",
+              hidden = NA,
+              "Choose a Quarter before the end quarter to play."
+            )
           )
         ),
-
         tags$div(
           class = "control-group",
-          tags$div(class = "control-label", id = "value-mode-label", "Display values as"),
+          tags$div(
+            class = "control-label",
+            tags$span(
+              id = "value-mode-label",
+              "Display values as"
+            ),
+            control_info(
+              "Display values as",
+              "People shows the published count. Per 1,000 residents adjusts for population size, making states easier to compare."
+            )
+          ),
           tags$div(
             role = "group",
             `aria-labelledby` = "value-mode-label",
@@ -983,10 +1327,11 @@ ui <- page_fluid(
           )
         )
       ),
-
-      tags$p(class = "sidebar-hint", "Click charts to explore.")
+      tags$p(
+        class = "sidebar-hint",
+        "Click charts to explore."
+      )
     ),
-
     tags$main(
       class = "dashboard-main",
 
@@ -995,14 +1340,11 @@ ui <- page_fluid(
       # ----------------------------------------------------------
 
       tags$div(
-
         class = "dashboard-header",
-
         tags$h1(
           class = "dashboard-title",
           "Australia's Population Engine"
         ),
-
         tags$p(
           class = "dashboard-subtitle",
           "Explore what is driving population change across Australian states and territories."
@@ -1015,28 +1357,20 @@ ui <- page_fluid(
       # ----------------------------------------------------------
 
       layout_columns(
-
         col_widths = breakpoints(
           xs = 12,
           sm = c(6, 6),
           lg = c(3, 3, 3, 3)
         ),
-
-
         card(
-
           class = "kpi-card",
-
           card_body(
-
             tags$div(
               class = "kpi-label",
               "Population"
             ),
-
             tags$p(
               class = "kpi-value",
-
               textOutput(
                 "population_kpi",
                 inline = TRUE
@@ -1044,22 +1378,15 @@ ui <- page_fluid(
             )
           )
         ),
-
-
         card(
-
           class = "kpi-card",
-
           card_body(
-
             tags$div(
               class = "kpi-label",
               "Quarterly change"
             ),
-
             tags$p(
               class = "kpi-value",
-
               textOutput(
                 "change_kpi",
                 inline = TRUE
@@ -1067,22 +1394,15 @@ ui <- page_fluid(
             )
           )
         ),
-
-
         card(
-
           class = "kpi-card",
-
           card_body(
-
             tags$div(
               class = "kpi-label",
               "Largest driver"
             ),
-
             tags$p(
               class = "kpi-value",
-
               textOutput(
                 "driver_kpi",
                 inline = TRUE
@@ -1090,22 +1410,15 @@ ui <- page_fluid(
             )
           )
         ),
-
-
         card(
-
           class = "kpi-card",
-
           card_body(
-
             tags$div(
               class = "kpi-label",
               "Selected area"
             ),
-
             tags$p(
               class = "kpi-value",
-
               textOutput(
                 "state_kpi",
                 inline = TRUE
@@ -1121,7 +1434,6 @@ ui <- page_fluid(
       # ----------------------------------------------------------
 
       tags$div(
-
         class = "analysis-layout",
 
 
@@ -1130,31 +1442,24 @@ ui <- page_fluid(
         # --------------------------------------------------------
 
         card(
-
           card_header(
             "Growth Driver Map"
           ),
-
           card_body(
-
             tags$p(
               class = "chart-note",
               "Colour shows the published component with the largest absolute contribution. Click a state to explore it."
             ),
-
             girafeOutput(
               outputId = "driver_map",
               width = "100%",
               height = "360px"
             ),
-
             tags$div(
               class = "driver-legend",
-
               lapply(names(driver_colours), function(driver) {
                 tags$span(
                   class = "driver-legend-item",
-
                   tags$span(
                     class = "driver-legend-swatch",
                     style = paste0(
@@ -1163,7 +1468,6 @@ ui <- page_fluid(
                       ";"
                     )
                   ),
-
                   unname(driver_labels[[driver]])
                 )
               })
@@ -1177,18 +1481,14 @@ ui <- page_fluid(
         # --------------------------------------------------------
 
         card(
-
           card_header(
             "Interstate Momentum"
           ),
-
           card_body(
-
             tags$p(
               class = "chart-note",
               "Compare net interstate migration across states and territories. Click a bar to explore that area."
             ),
-
             girafeOutput(
               outputId = "interstate_momentum",
               width = "100%",
@@ -1203,18 +1503,14 @@ ui <- page_fluid(
         # --------------------------------------------------------
 
         card(
-
           card_header(
             "Driver Timeline"
           ),
-
           card_body(
-
             tags$p(
               class = "chart-note",
               "Hover for values. Click a quarter to update the entire dashboard."
             ),
-
             girafeOutput(
               outputId = "driver_timeline",
               width = "100%",
@@ -1229,42 +1525,30 @@ ui <- page_fluid(
         # --------------------------------------------------------
 
         card(
-
           card_header(
             "Population Fingerprint"
           ),
-
           card_body(
-
             tags$p(
               class = "chart-note",
               "Compare the annual age and sex structure of the selected area."
             ),
-
             tags$p(
               class = "chart-note fingerprint-year-note",
-
               textOutput(
                 "fingerprint_year_note",
                 inline = TRUE
               )
             ),
-
-
             tags$div(
-
               class = "fingerprint-years",
-
-
               tags$div(
-
                 class = "year-control",
-
                 tags$div(
                   class = "control-label",
-                  "Year A"
+                  tags$label(`for` = "year_a", "Year A"),
+                  control_info("Year A", "Choose two annual population profiles to compare changes in age and sex structure.")
                 ),
-
                 selectInput(
                   inputId = "year_a",
                   label = NULL,
@@ -1273,17 +1557,13 @@ ui <- page_fluid(
                   width = "100%"
                 )
               ),
-
-
               tags$div(
-
                 class = "year-control",
-
                 tags$div(
                   class = "control-label",
-                  "Year B"
+                  tags$label(`for` = "year_b", "Year B"),
+                  control_info("Year B", "Choose two annual population profiles to compare changes in age and sex structure.")
                 ),
-
                 selectInput(
                   inputId = "year_b",
                   label = NULL,
@@ -1293,7 +1573,6 @@ ui <- page_fluid(
                 )
               )
             ),
-
             tags$p(
               class = "availability-note",
               paste0(
@@ -1302,8 +1581,6 @@ ui <- page_fluid(
                 "."
               )
             ),
-
-
             girafeOutput(
               outputId = "population_fingerprint",
               width = "100%",
@@ -1312,14 +1589,11 @@ ui <- page_fluid(
           )
         )
       ),
-
       tags$footer(
         class = "dashboard-footer",
-
         tags$div(
           "Source: Australian Bureau of Statistics."
         ),
-
         tags$div(
           "Population components are shown as published and may not sum exactly to reported quarterly population change."
         )
@@ -1334,8 +1608,6 @@ ui <- page_fluid(
 # ------------------------------------------------------------
 
 server <- function(input, output, session) {
-
-
   # ----------------------------------------------------------
   # SHARED REACTIVES AND KPIs
   # ----------------------------------------------------------
@@ -1346,6 +1618,7 @@ server <- function(input, output, session) {
   })
 
 
+  # Get total population for the selected state and quarter.
   selected_population <- reactive({
     population %>%
       filter(
@@ -1356,6 +1629,7 @@ server <- function(input, output, session) {
   })
 
 
+  # Get the population-change components for the current selection.
   selected_components <- reactive({
     components %>%
       filter(
@@ -1393,6 +1667,7 @@ server <- function(input, output, session) {
   })
 
 
+  # Find the component with the largest contribution, whether positive or negative.
   output$driver_kpi <- renderText({
     data <- selected_components() %>%
       filter(
@@ -1448,12 +1723,10 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------
 
   map_data <- reactive({
-
     quarter <- selected_quarter()
 
 
     driver_data <- components %>%
-
       filter(
         date == quarter,
         state != "Australia",
@@ -1461,48 +1734,41 @@ server <- function(input, output, session) {
       )
 
 
+    # Find the largest driver for each state in this quarter.
     dominant_driver <- driver_data %>%
-
       filter(
         is.finite(value)
       ) %>%
-
       group_by(
         state
       ) %>%
-
       slice_max(
         order_by = abs(value),
         n = 1,
         with_ties = FALSE
       ) %>%
-
       ungroup() %>%
-
       transmute(
         state,
         driver = component
       )
 
 
+    # Put all three drivers into columns, keeping missing values for the tooltips.
     component_wide <- expand_grid(
       state = state_choices,
       component = names(driver_colours)
     ) %>%
-
       left_join(
         driver_data %>%
           select(state, component, value),
         by = c("state", "component")
       ) %>%
-
       group_by(state, component) %>%
-
       summarise(
         value = first_finite_or_na(value),
         .groups = "drop"
       ) %>%
-
       pivot_wider(
         names_from = component,
         values_from = value
@@ -1510,16 +1776,13 @@ server <- function(input, output, session) {
 
 
     quarterly_change <- components %>%
-
       filter(
         date == quarter,
         state != "Australia",
         component ==
           "Change Over Previous Quarter"
       ) %>%
-
       group_by(state) %>%
-
       summarise(
         quarterly_change = first_finite_or_na(value),
         .groups = "drop"
@@ -1527,38 +1790,32 @@ server <- function(input, output, session) {
 
 
     quarter_population <- population %>%
-
       filter(
         date == quarter,
         state != "Australia",
         sex == "Persons"
       ) %>%
-
       group_by(state) %>%
-
       summarise(
         population = first_finite_or_na(population),
         .groups = "drop"
       )
 
 
+    # Bring the drivers and population together with each state's map geometry.
     data <- map_states %>%
-
       left_join(
         dominant_driver,
         by = "state"
       ) %>%
-
       left_join(
         component_wide,
         by = "state"
       ) %>%
-
       left_join(
         quarterly_change,
         by = "state"
       ) %>%
-
       left_join(
         quarter_population,
         by = "state"
@@ -1618,44 +1875,31 @@ server <- function(input, output, session) {
     ] <- "Not available"
 
 
+    # Build the detailed hover text for each state.
     data$tooltip <- paste0(
-
       "<strong>",
       data$state,
       "</strong><br>",
-
       format(
         quarter,
         "%B %Y"
       ),
-
       "<br><br>",
-
       "<strong>Population</strong>: ",
       data$population_display,
-
       "<br>",
-
       "<strong>Quarterly change</strong>: ",
       data$change_display,
-
       "<br><br>",
-
       "Natural increase: ",
       data$natural_display,
-
       "<br>",
-
       "Overseas migration: ",
       data$overseas_display,
-
       "<br>",
-
       "Interstate migration: ",
       data$interstate_display,
-
       "<br><br>",
-
       "<strong>Largest driver</strong>: ",
       data$driver_display
     )
@@ -1678,7 +1922,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------
 
   output$driver_map <- renderGirafe({
-
     data <- map_data()
 
     validate(
@@ -1689,41 +1932,31 @@ server <- function(input, output, session) {
     )
 
 
+    # Colour each state by its largest driver.
     map_plot <- ggplot(
       data = data
     ) +
-
       geom_sf_interactive(
-
         aes(
           fill = driver,
           tooltip = tooltip,
           data_id = state
         ),
-
         colour = "#FFFFFF",
         linewidth = 0.7
       ) +
-
       scale_fill_manual(
-
         values = driver_colours,
-
         breaks = names(
           driver_colours
         ),
-
         labels = unname(
           driver_labels
         ),
-
         drop = FALSE,
-
         na.value = "#D9D9D4",
-
         guide = "none"
       ) +
-
       coord_sf(
         xlim = c(
           112,
@@ -1735,11 +1968,9 @@ server <- function(input, output, session) {
         ),
         expand = FALSE
       ) +
-
       theme_void(
         base_family = "Segoe UI"
       ) +
-
       theme(
         plot.margin = margin(
           5,
@@ -1751,7 +1982,8 @@ server <- function(input, output, session) {
 
 
     widget <- card_girafe(
-      map_plot, "driver_map", session, selection_input = "state"
+      map_plot, "driver_map", session,
+      selection_input = "state"
     )
 
 
@@ -1774,10 +2006,9 @@ server <- function(input, output, session) {
   # PREPARE TIMELINE DATA
   # ----------------------------------------------------------
 
+  # Prepare the full history for this state and display mode, not just one quarter.
   timeline_data <- reactive({
-
     driver_history <- components %>%
-
       filter(
         state == input$state,
         component %in% names(driver_colours)
@@ -1785,12 +2016,10 @@ server <- function(input, output, session) {
 
 
     population_history <- population %>%
-
       filter(
         state == input$state,
         sex == "Persons"
       ) %>%
-
       select(
         date,
         population
@@ -1798,7 +2027,6 @@ server <- function(input, output, session) {
 
 
     data <- driver_history %>%
-
       left_join(
         population_history,
         by = "date"
@@ -1808,20 +2036,15 @@ server <- function(input, output, session) {
     if (
       input$value_mode == "rate"
     ) {
-
       data <- data %>%
-
         mutate(
           display_value = safe_rate(
             value,
             population
           )
         )
-
     } else {
-
       data <- data %>%
-
         mutate(
           display_value = value
         )
@@ -1837,15 +2060,12 @@ server <- function(input, output, session) {
 
 
     data$component_label <- factor(
-
       as.character(
         data$component
       ),
-
       levels = names(
         driver_colours
       ),
-
       labels = unname(
         driver_labels
       )
@@ -1855,13 +2075,10 @@ server <- function(input, output, session) {
     if (
       input$value_mode == "rate"
     ) {
-
       data$value_display <- format_rate(
         data$display_value
       )
-
     } else {
-
       data$value_display <- format_people(
         data$display_value
       )
@@ -1869,24 +2086,18 @@ server <- function(input, output, session) {
 
 
     data$tooltip <- paste0(
-
       "<strong>",
       as.character(
         data$component_label
       ),
       "</strong><br>",
-
       input$state,
-
       "<br>",
-
       format(
         data$date,
         "%B %Y"
       ),
-
       "<br><br>",
-
       "<strong>",
       data$value_display,
       "</strong>"
@@ -1902,7 +2113,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------
 
   output$driver_timeline <- renderGirafe({
-
     data <- timeline_data()
 
 
@@ -1921,40 +2131,34 @@ server <- function(input, output, session) {
     y_axis_label <- if (
       input$value_mode == "rate"
     ) {
-
       "People per 1,000 residents"
-
     } else {
-
       "People"
     }
 
 
     timeline_plot <- ggplot(
-
       data,
-
       aes(
         x = date,
         y = display_value,
         group = component
       )
-
     ) +
-
       geom_hline(
         yintercept = 0,
         colour = "#B5B5B5",
         linewidth = 0.45
       ) +
 
-      geom_vline(
-        xintercept = selected_quarter(),
+      # Move this line in the browser so quarter changes do not redraw the history.
+      geom_vline_interactive(
+        xintercept = isolate(selected_quarter()),
+        data_id = "quarter-playhead-reference",
         colour = "#444444",
         linewidth = 0.6,
         linetype = "dashed"
       ) +
-
       geom_line(
         aes(
           colour = component
@@ -1962,9 +2166,7 @@ server <- function(input, output, session) {
         linewidth = 0.8,
         na.rm = TRUE
       ) +
-
       geom_point_interactive(
-
         aes(
           colour = component,
           tooltip = tooltip,
@@ -1972,23 +2174,19 @@ server <- function(input, output, session) {
             date
           )
         ),
-
         size = 1.8,
         alpha = 0.55,
         na.rm = TRUE
       ) +
-
       facet_wrap(
-        ~ component_label,
+        ~component_label,
         ncol = 1,
         scales = "free_y"
       ) +
-
       scale_colour_manual(
         values = driver_colours,
         guide = "none"
       ) +
-
       scale_x_date(
         date_breaks = "10 years",
         date_labels = "%Y",
@@ -1999,46 +2197,35 @@ server <- function(input, output, session) {
           )
         )
       ) +
-
       labs(
         x = "Quarter",
         y = y_axis_label
       ) +
-
       theme_minimal(
         base_family = "Segoe UI"
       ) +
-
       theme(
-
         panel.grid.minor = element_blank(),
-
         panel.grid.major.x = element_blank(),
-
         panel.grid.major.y = element_line(
           colour = "#E5E5E5",
           linewidth = 0.35
         ),
-
         strip.text = element_text(
           size = 9.5,
           face = "bold",
           colour = "#333333",
           hjust = 0
         ),
-
         strip.background = element_blank(),
-
         axis.title = element_text(
           size = 9,
           colour = "#555555"
         ),
-
         axis.text = element_text(
           size = 8,
           colour = "#666666"
         ),
-
         plot.margin = margin(
           5,
           8,
@@ -2049,7 +2236,8 @@ server <- function(input, output, session) {
 
 
     widget <- card_girafe(
-      timeline_plot, "driver_timeline", session, selection_input = "quarter"
+      timeline_plot, "driver_timeline", session,
+      selection_input = "quarter"
     )
 
 
@@ -2060,7 +2248,8 @@ server <- function(input, output, session) {
         "stroke-width:2px;cursor:pointer;"
       ),
       selection_type = "single",
-      selected = as.character(selected_quarter()),
+      # Later quarter changes update these markers in the browser too.
+      selected = isolate(as.character(selected_quarter())),
       selection_css = paste0(
         "fill:#222222;stroke:#222222;",
         "stroke-width:2px;"
@@ -2078,20 +2267,18 @@ server <- function(input, output, session) {
   # PREPARE INTERSTATE DATA
   # ----------------------------------------------------------
 
+  # Compare all states in this quarter; choosing a state only changes its outline.
   interstate_data <- reactive({
-
     quarter <- selected_quarter()
 
 
     interstate <- components %>%
-
       filter(
         date == quarter,
         state != "Australia",
         component ==
           "Net Interstate Migration"
       ) %>%
-
       select(
         state,
         value
@@ -2099,13 +2286,11 @@ server <- function(input, output, session) {
 
 
     quarter_population <- population %>%
-
       filter(
         date == quarter,
         state != "Australia",
         sex == "Persons"
       ) %>%
-
       select(
         state,
         population
@@ -2113,7 +2298,6 @@ server <- function(input, output, session) {
 
 
     data <- interstate %>%
-
       left_join(
         quarter_population,
         by = "state"
@@ -2123,20 +2307,15 @@ server <- function(input, output, session) {
     if (
       input$value_mode == "rate"
     ) {
-
       data <- data %>%
-
         mutate(
           display_value = safe_rate(
             value,
             population
           )
         )
-
     } else {
-
       data <- data %>%
-
         mutate(
           display_value = value
         )
@@ -2144,9 +2323,7 @@ server <- function(input, output, session) {
 
 
     data <- data %>%
-
       mutate(
-
         direction = case_when(
           display_value > 0 ~ "Net gain",
           display_value < 0 ~ "Net loss",
@@ -2159,13 +2336,10 @@ server <- function(input, output, session) {
     if (
       input$value_mode == "rate"
     ) {
-
       data$value_display <- format_rate(
         data$display_value
       )
-
     } else {
-
       data$value_display <- format_people(
         data$display_value
       )
@@ -2178,39 +2352,28 @@ server <- function(input, output, session) {
 
 
     data$tooltip <- paste0(
-
       "<strong>",
       data$state,
       "</strong><br>",
-
       format(
         quarter,
         "%B %Y"
       ),
-
       "<br><br>",
-
       "<strong>Net interstate migration</strong><br>",
-
       data$value_display,
-
       "<br><br>",
-
       data$direction,
-
       "<br>",
-
       "Population: ",
       data$population_display
     )
 
 
     data <- data %>%
-
       filter(
         is.finite(display_value)
       ) %>%
-
       arrange(
         display_value
       )
@@ -2231,7 +2394,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------
 
   output$interstate_momentum <- renderGirafe({
-
     data <- interstate_data()
 
 
@@ -2246,11 +2408,8 @@ server <- function(input, output, session) {
     x_axis_label <- if (
       input$value_mode == "rate"
     ) {
-
       "Net interstate migration per 1,000 residents"
-
     } else {
-
       "Net interstate migration (people)"
     }
 
@@ -2259,68 +2418,53 @@ server <- function(input, output, session) {
       session$clientData$output_interstate_momentum_width < 420
     )
 
+    # Put losses and gains on either side of zero for an easy comparison.
     interstate_plot <- ggplot(
-
       data,
-
       aes(
         x = display_value,
         y = state_order
       )
-
     ) +
-
-      geom_vline(
+      geom_vline_interactive(
         xintercept = 0,
+        data_id = "interstate-zero-reference",
         colour = "#666666",
         linewidth = 0.6
       ) +
-
       geom_col_interactive(
-
         aes(
           tooltip = tooltip,
           data_id = state,
           colour = state == input$state
         ),
-
         fill = unname(
           driver_colours[
             "Net Interstate Migration"
           ]
         ),
-
         linewidth = 1
       ) +
-
       scale_colour_manual(
-
         values = c(
           "FALSE" = "#FFFFFF",
           "TRUE" = "#111111"
         ),
-
         guide = "none"
       ) +
-
       scale_x_continuous(
-
         labels = if (
           input$value_mode == "rate"
         ) {
-
           label_number(
             accuracy = 0.1
           )
-
         } else {
-
           label_number(
             accuracy = 1,
             big.mark = ","
           )
         },
-
         expand = expansion(
           mult = c(
             0.08,
@@ -2328,7 +2472,6 @@ server <- function(input, output, session) {
           )
         )
       ) +
-
       labs(
         subtitle = "Net loss  <---        zero        --->  Net gain",
         x = paste(
@@ -2340,34 +2483,26 @@ server <- function(input, output, session) {
         ),
         y = NULL
       ) +
-
       theme_minimal(
         base_family = "Segoe UI"
       ) +
-
       theme(
-
         panel.grid.minor = element_blank(),
-
         panel.grid.major.y = element_blank(),
-
         panel.grid.major.x = element_line(
           colour = "#E5E5E5",
           linewidth = 0.35
         ),
-
         axis.text.y = element_text(
           size = 9,
           colour = "#333333"
         ),
-
         axis.text.x = element_text(
           size = 8,
           colour = "#666666",
           angle = if (compact_plot) 45 else 0,
           hjust = if (compact_plot) 1 else 0.5
         ),
-
         axis.title.x = element_text(
           size = 9,
           colour = "#555555",
@@ -2375,7 +2510,6 @@ server <- function(input, output, session) {
             t = 8
           )
         ),
-
         plot.subtitle = element_text(
           size = 9,
           colour = "#666666",
@@ -2384,7 +2518,6 @@ server <- function(input, output, session) {
             b = 4
           )
         ),
-
         plot.margin = margin(
           8,
           12,
@@ -2395,7 +2528,8 @@ server <- function(input, output, session) {
 
 
     widget <- card_girafe(
-      interstate_plot, "interstate_momentum", session, selection_input = "state"
+      interstate_plot, "interstate_momentum", session,
+      selection_input = "state"
     )
 
 
@@ -2421,8 +2555,8 @@ server <- function(input, output, session) {
   # PREPARE POPULATION PYRAMID DATA
   # ----------------------------------------------------------
 
+  # This annual comparison uses the state and two years, not the selected quarter.
   fingerprint_data <- reactive({
-
     req(
       input$year_a,
       input$year_b
@@ -2438,98 +2572,79 @@ server <- function(input, output, session) {
 
 
     state_data <- age_profiles_grouped %>%
-
       filter(
         state == input$state
       )
 
 
-    # Extract Year A values.
     data_a <- state_data %>%
-
       filter(
         year == year_a
       ) %>%
-
       select(
         sex,
         age_group_start,
         age_group,
         population
       ) %>%
-
       rename(
         population_a = population
       )
 
 
-    # Extract Year B values.
     data_b <- state_data %>%
-
       filter(
         year == year_b
       ) %>%
-
       select(
         sex,
         age_group_start,
         age_group,
         population
       ) %>%
-
       rename(
         population_b = population
       )
 
 
-    # Join the two years so each age and sex combination
-    # can show both values in one tooltip.
+    # Bring both years together so each tooltip can show the values and change.
     data <- full_join(
-
       data_a,
       data_b,
-
       by = c(
         "sex",
         "age_group_start",
         "age_group"
       )
     ) %>%
-
       mutate(
-
         change = ifelse(
           is.finite(population_a) &
             is.finite(population_b),
           population_b - population_a,
           NA_real_
         ),
-
         plot_a_value = coalesce(
           population_a,
           0
         ),
-
         plot_b_value = coalesce(
           population_b,
           0
         ),
 
 
-        # Male values are plotted to the left of zero and
-        # female values to the right.
+        # Plot male values to the left of zero and female values to the right.
         plot_a = ifelse(
           sex == "Male",
           -plot_a_value,
           plot_a_value
         ),
-
         plot_b = ifelse(
           sex == "Male",
           -plot_b_value,
           plot_b_value
         ),
-
         age_group = factor(
           age_group,
           levels = age_group_levels
@@ -2559,35 +2674,26 @@ server <- function(input, output, session) {
 
 
     data$tooltip <- paste0(
-
       "<strong>",
       input$state,
       "</strong><br>",
-
       "Age ",
       as.character(
         data$age_group
       ),
-
       " · ",
       data$sex,
-
       "<br><br>",
-
       "<strong>",
       year_a,
       "</strong>: ",
       data$population_a_display,
-
       "<br>",
-
       "<strong>",
       year_b,
       "</strong>: ",
       data$population_b_display,
-
       "<br><br>",
-
       "<strong>Change</strong>: ",
       data$change_display
     )
@@ -2609,7 +2715,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------
 
   output$population_fingerprint <- renderGirafe({
-
     data <- fingerprint_data()
 
 
@@ -2627,16 +2732,13 @@ server <- function(input, output, session) {
 
 
     fingerprint_plot <- ggplot(
-
       data,
-
       aes(
         x = age_group
       )
-
     ) +
 
-      # Central reference line between male and female sides.
+      # Separate the male and female sides at zero.
       geom_hline(
         yintercept = 0,
         colour = "#666666",
@@ -2644,42 +2746,33 @@ server <- function(input, output, session) {
       ) +
 
 
-      # Year A is displayed as a wider grey silhouette.
+      # Use Year A as a wider grey reference behind the comparison year.
       geom_col(
-
         aes(
           y = plot_a
         ),
-
-        fill = "#D9D9D4",
+        fill = "#B8BAB5",
         width = 0.82
       ) +
 
 
-      # Year B sits on top in colour and provides the
-      # interactive tooltip.
+      # Overlay Year B in colour and make it interactive.
       geom_col_interactive(
-
         aes(
           y = plot_b,
           fill = sex,
           tooltip = tooltip,
           data_id = data_id
         ),
-
         width = 0.55
       ) +
-
       scale_fill_manual(
         values = sex_colours,
         breaks = c("Male", "Female"),
         drop = FALSE
       ) +
-
       scale_y_continuous(
-
         labels = function(x) {
-
           label_number(
             accuracy = 1,
             scale_cut = cut_short_scale()
@@ -2687,7 +2780,6 @@ server <- function(input, output, session) {
             abs(x)
           )
         },
-
         expand = expansion(
           mult = c(
             0.08,
@@ -2695,54 +2787,40 @@ server <- function(input, output, session) {
           )
         )
       ) +
-
       coord_flip() +
-
       labs(
         x = "Age group",
         y = "Population",
         fill = NULL
       ) +
-
       theme_minimal(
         base_family = "Segoe UI"
       ) +
-
       theme(
-
         panel.grid.minor = element_blank(),
-
         panel.grid.major.y = element_blank(),
-
         panel.grid.major.x = element_line(
           colour = "#E5E5E5",
           linewidth = 0.35
         ),
-
         axis.text.y = element_text(
           size = 8.5,
           colour = "#444444"
         ),
-
         axis.text.x = element_text(
           size = 8,
           colour = "#666666"
         ),
-
         axis.title = element_text(
           size = 9,
           colour = "#555555"
         ),
-
         legend.position = "bottom",
-
         legend.title = element_blank(),
-
         legend.text = element_text(
           size = 9,
           colour = "#444444"
         ),
-
         plot.margin = margin(
           5,
           10,
@@ -2772,6 +2850,7 @@ server <- function(input, output, session) {
 # 7. APP LAUNCH
 # ------------------------------------------------------------
 
+# Run the Shiny app.
 shinyApp(
   ui = ui,
   server = server
