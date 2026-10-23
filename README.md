@@ -6,9 +6,9 @@ The dashboard examines three components of population change — **natural incre
 
 Developed as an individual project for **GEOM90007 (Information Visualisation)**, Master of Computer Science, University of Melbourne.
 
-## Dashboard Overview
+## Dashboard Preview
 
-**Australia's Population Engine** brings together four interactive visualisations and four summary indicators.
+![Australia's Population Engine Dashboard](screenshots/dashboard-overview.png)
 
 | Component | Function |
 |---|---|
@@ -142,12 +142,6 @@ To regenerate the processed datasets from the source Excel workbooks:
 `Rscript 02_preprocess.R`
 
 Run both commands from the repository root.
-
-## Report
-
-The accompanying academic report documents the visualisation approach, design considerations, and implementation.
-
-[View Assignment 2 Report](1739619_Assignment2_Report.pdf)
 
 ## Limitations
 
