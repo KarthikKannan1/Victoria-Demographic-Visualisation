@@ -14,12 +14,9 @@ library(sf)
 library(ozmaps)
 
 
-# ------------------------------------------------------------
-# 2. DATA LOADING
-# ------------------------------------------------------------
+# 2. DATA LOADING - read in the RDS files and check they have the columns we need.
 
-# Look for the files in Data/ or beside app.R so both the development
-# folder and the final submission layout work.
+# Check both the Data folder and the app.R folder itself, since the data files could be in either place depending on how the project is set up.
 find_data_file <- function(filename) {
   candidates <- c(file.path("Data", filename), filename)
   matches <- candidates[file.exists(candidates)]
@@ -53,7 +50,7 @@ read_data_file <- function(filename) {
 }
 
 
-# Check that each dataset has the columns the dashboard needs.
+# Quick sanity check that each dataset actually has the columns the dashboard uses.
 validate_columns <- function(data, dataset_name, required_columns) {
   if (!is.data.frame(data)) {
     stop(sprintf("'%s' must contain a data frame.", dataset_name), call. = FALSE)
@@ -97,11 +94,11 @@ validate_columns(
 )
 
 
-# ------------------------------------------------------------
-# 3. DATA PREPARATION
-# ------------------------------------------------------------
 
-# Keep dates consistent before using them in filters and joins.
+# 3. DATA PREPARATION - tidy the dates, build the age bands, and set up the map and dropdown choices.
+
+
+# Make sure every date column is a real Date before we filter or join on it.
 normalise_date <- function(values, dataset_name) {
   converted <- if (inherits(values, "Date")) {
     values
@@ -125,7 +122,7 @@ population$date <- normalise_date(population$date, "population.rds")
 age_profiles$date <- normalise_date(age_profiles$date, "age_profiles.rds")
 
 
-# Read the age number from ABS labels, including labels such as "100+".
+# Pull the number out of the ABS age labels, which also handles labels like "100+".
 age_profiles <- age_profiles %>%
   mutate(
     age_numeric = suppressWarnings(
@@ -140,7 +137,7 @@ age_profiles <- age_profiles %>%
   )
 
 
-# Group single ages into five-year bands so the pyramid is easier to read.
+# Bucket the single ages into five-year bands, otherwise the pyramid is far too cluttered.
 age_profiles_grouped <- age_profiles %>%
   filter(
     sex %in% c(
@@ -190,7 +187,7 @@ age_profiles_grouped <- age_profiles %>%
   )
 
 
-# Keep the age groups in youngest-to-oldest order for the pyramid.
+# Age groups in youngest-to-oldest order, used as the factor levels on the pyramid axis.
 age_group_levels <- age_profiles_grouped %>%
   distinct(
     age_group_start,
@@ -204,7 +201,7 @@ age_group_levels <- age_profiles_grouped %>%
   )
 
 
-# Offer only the years included in the annual age data.
+# Only offer years that actually exist in the age data.
 age_years <- sort(
   unique(
     as.integer(
@@ -229,7 +226,7 @@ age_year_choices <- setNames(
 )
 
 
-# Compare 1981 with the latest year, using the earliest available year if needed.
+# Start on 1981 vs the latest year, but fall back to the earliest year if 1981 is missing.
 default_year_a <- if (
   1981 %in% age_years
 ) {
@@ -246,9 +243,8 @@ default_year_b <- as.character(
 )
 
 
-# ------------------------------------------------------------
-# PREPARE AUSTRALIAN MAP DATA
-# ------------------------------------------------------------
+
+# AUSTRALIAN MAP DATA PREP
 
 map_states <- ozmap_data(
   "states",
@@ -265,9 +261,7 @@ map_states <- ozmap_data(
   )
 
 
-# ------------------------------------------------------------
-# PREPARE DASHBOARD CHOICES
-# ------------------------------------------------------------
+# DASHBOARD CHOICES PREP
 
 state_choices <- sort(
   setdiff(
@@ -313,9 +307,7 @@ quarter_choices <- setNames(
 )
 
 
-# ------------------------------------------------------------
-# DEFINE CONSISTENT COLOURS AND LABELS
-# ------------------------------------------------------------
+# CONSISTENT COLORING AND LABELS
 
 driver_colours <- c(
   "Natural Increase" = "#2A9D8F",
@@ -331,20 +323,17 @@ driver_labels <- c(
 )
 
 
-# Use muted colours for male and female age profiles.
+# Muted tones for the male/female sides of the pyramid so it does not clash with the driver colours.
 sex_colours <- c(
   "Male" = "#577590",
   "Female" = "#B56576"
 )
 
 
-# ------------------------------------------------------------
-# 4. HELPER FUNCTIONS
-# ------------------------------------------------------------
+# 4. HELPER FUNCTIONS - small formatting and chart-styling functions reused across the dashboard.
 
-# Convert counts to rates per 1,000 residents when population is available.
-# Leave invalid rates as NA so the dashboard can show "Not available".
-safe_rate <- function(value, population_value) {
+# Turn a raw count into a rate per 1,000 residents. Anything that cannot be worked out stays NA so the dashboard shows "Not available" instead of an invalid value.
+safe_rate <- function(value, population_value) {             
   result <- rep(NA_real_, length(value))
 
   valid <-
@@ -454,7 +443,7 @@ first_finite_or_na <- function(value) {
 }
 
 
-# Keep tooltip styling consistent across the charts.
+# One tooltip style so all four charts look the same on hover.
 tooltip_css <- paste(
   "background-color:#222222;",
   "color:white;",
@@ -468,7 +457,7 @@ tooltip_css <- paste(
 )
 
 
-# Apply the shared hover, selection and tooltip behaviour.
+# Shared hover, selection and tooltip options, so I am not repeating these for every chart.
 style_girafe <- function(
   widget,
   hover_css,
@@ -498,8 +487,7 @@ style_girafe <- function(
 }
 
 
-# Size each chart to its card so labels stay readable when the window is resized.
-# Connect clickable marks to the matching sidebar control.
+# Sizes the SVG to the card it sits in, otherwise the labels get squashed when the window resizes, and tags the chart with the sidebar input its marks should drive when clicked.
 card_girafe <- function(plot, output_id, session, selection_input = NULL) {
   plot_width <- session$clientData[[paste0("output_", output_id, "_width")]]
   plot_height <- session$clientData[[paste0("output_", output_id, "_height")]]
@@ -512,7 +500,7 @@ card_girafe <- function(plot, output_id, session, selection_input = NULL) {
   )
 
   if (!is.null(selection_input)) {
-    # Keep the click link when a chart is opened fullscreen.
+    # The link goes on the SVG itself rather than the container, so clicks still work when bslib moves the chart into its fullscreen overlay.
     widget <- htmlwidgets::onRender(
       widget,
       "function(el, x, data) {
@@ -531,7 +519,7 @@ card_girafe <- function(plot, output_id, session, selection_input = NULL) {
 }
 
 
-# Keep the help buttons keyboard-accessible without adding more text to the controls.
+# Little "i" button next to a control label, for extra explanation without cluttering the sidebar.
 control_info <- function(label, text) {
   bslib::tooltip(
     tags$button(
@@ -546,9 +534,7 @@ control_info <- function(label, text) {
 }
 
 
-# ------------------------------------------------------------
-# 5. UI
-# ------------------------------------------------------------
+# 5. UI - the sidebar controls, KPI cards, chart layout and all the custom styling.
 
 app_theme <- bs_theme(
   version = 5,
@@ -562,9 +548,7 @@ ui <- page_fluid(
   theme = app_theme,
 
 
-  # ----------------------------------------------------------
   # CUSTOM CSS
-  # ----------------------------------------------------------
 
   tags$head(
     tags$meta(
@@ -572,8 +556,7 @@ ui <- page_fluid(
       content = "width=device-width, initial-scale=1"
     ),
 
-    # Send chart clicks through the dropdowns so they stay the source of truth.
-    # ggiraph also emits selections on redraw, so those are not treated as clicks.
+    # Clicking a mark on a chart sets the matching dropdown rather than the chart's own selection, so the dropdowns stay the single source of truth. It has to be a real click listener because ggiraph also fires selection events on redraw, and those are not user clicks.
     tags$script(HTML("
       document.addEventListener('click', function(event) {
         if (!(event.target instanceof Element)) return;
@@ -586,15 +569,13 @@ ui <- page_fluid(
         if (!input || !input.selectize ||
             !Object.prototype.hasOwnProperty.call(input.selectize.options, value)) return;
 
-        // Change the dropdown itself and let Shiny update the views.
-        // Skip ggiraph's toggle so an old chart cannot undo a newer choice.
+        // Set the dropdown and let Shiny push the change out to every chart. Stopping the event blocks ggiraph's own toggle, otherwise a stale chart can fire afterwards and undo a newer selection.
         event.stopPropagation();
         if (input.value !== value) input.selectize.setValue(value);
       }, true);
     ")),
 
-    # Play through the existing quarter choices using the same dropdown.
-    # Store only playback status here, not a separate selected quarter.
+    # Playback steps through the quarter dropdown on a timer. Only the playing state is kept here, the quarter itself stays in the dropdown so there is never a second copy to keep in sync.
     tags$script(HTML("
       document.addEventListener('DOMContentLoaded', function() {
         const button = document.getElementById('quarter_play');
@@ -615,7 +596,7 @@ ui <- page_fluid(
           button.setAttribute('aria-pressed', 'false');
         }
 
-        // The end quarter only limits playback; it never changes the current quarter.
+        // The end quarter only sets where playback stops, it never moves the current quarter.
         function checkBoundary() {
           const canPlay = quarter.value && endQuarter.value && quarter.value < endQuarter.value;
           if (!canPlay) stopPlayback();
@@ -643,7 +624,7 @@ ui <- page_fluid(
             stopPlayback();
             return;
           }
-          // Let the current charts finish before requesting another quarter.
+          // Wait for the current redraw to finish, otherwise requests pile up on slower machines.
           if (document.documentElement.classList.contains('shiny-busy')) {
             timer = window.setTimeout(advanceQuarter, interval);
             return;
@@ -670,7 +651,7 @@ ui <- page_fluid(
           timer = window.setTimeout(advanceQuarter, interval);
         });
 
-        // A manual dropdown choice or timeline click takes control immediately.
+        // If the user picks a quarter themselves (dropdown or timeline click), stop playback.
         $(quarter).on('change.quarterPlayback', function() {
           if (!advancing) stopPlayback();
           checkBoundary();
@@ -681,7 +662,7 @@ ui <- page_fluid(
       });
     ")),
 
-    # Let keyboard and touch users dismiss help without changing a control.
+    # Close the help tooltips with Escape or a click elsewhere, without touching the control underneath.
     tags$script(HTML("
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
@@ -695,7 +676,7 @@ ui <- page_fluid(
       });
     ")),
 
-    # Keep the timeline in place and ease changes between the map/bar frames.
+    # All the animation work. Slides the timeline playhead and eases the map and bars between quarters, so playback looks smooth instead of flicking between static frames.
     tags$script(HTML("
       window.populationCharts = (function() {
         const previous = new Map();
@@ -712,6 +693,7 @@ ui <- page_fluid(
           const first = anchors[0], last = anchors[anchors.length - 1];
           const start = Date.parse(first.dataset.id), end = Date.parse(last.dataset.id);
           if (end === start || !Number.isFinite(Date.parse(quarter))) return;
+          // Work out the playhead x position by interpolating between the first and last plotted points, based on where the selected date sits in that range.
           const x = Number(first.getAttribute('cx')) +
             (Date.parse(quarter) - start) / (end - start) *
             (Number(last.getAttribute('cx')) - Number(first.getAttribute('cx')));
@@ -721,7 +703,7 @@ ui <- page_fluid(
             line.style.transition = animate ? 'transform ' + duration() + 'ms ease-out' : 'none';
             line.style.transform = 'translateX(' + (x - Number(line.getAttribute('x1'))) + 'px)';
           });
-          // Highlight the points for the quarter shown in the dropdown.
+          // Highlight the points matching the quarter currently in the dropdown.
           points.forEach(point => point.classList.toggle('select_data_' + svg.id, point.dataset.id === quarter));
         }
 
@@ -739,7 +721,7 @@ ui <- page_fluid(
           svg.querySelectorAll('text').forEach(label => {
             if (marks.has(label.textContent)) labels.set(label.textContent, label.getBBox().y);
           });
-          // Remember the old positions just long enough to draw the next frame.
+          // Snapshot the current positions and colours so the next render can animate from them.
           previous.set(id, {viewBox: svg.getAttribute('viewBox'), marks, labels});
         }
 
@@ -771,7 +753,7 @@ ui <- page_fluid(
               const after = mark.getBBox();
               const frame = box => ({x: box.x + 'px', y: box.y + 'px', width: box.width + 'px', height: box.height + 'px'});
               const frames = [frame(before)];
-              // A change from loss to gain should pass through zero width.
+              // If a bar flips from loss to gain it should shrink to zero and grow back out the other side, rather than sliding straight through the axis.
               if (beforeZero && zeroX !== null &&
                   (before.x < beforeZero.x - 0.1) !== (after.x < zeroX - 0.1) && before.width + after.width > 0) {
                 const fraction = before.width / (before.width + after.width);
@@ -784,7 +766,7 @@ ui <- page_fluid(
               frames.push(frame(after));
               mark.animate(frames, timing);
             });
-            // Move the labels with their bars, and keep the zero line aligned.
+            // Bring the state labels along with their bars, and keep the zero line in step.
             svg.querySelectorAll('text').forEach(label => {
               const y = old.labels.get(label.textContent);
               if (y !== undefined) label.animate([
@@ -882,8 +864,7 @@ ui <- page_fluid(
         }
 
         .global-controls:focus-within {
-          /* Keep an open sidebar menu above the chart cards.
-             Selectize already places it above the other sidebar controls. */
+          /* Lift the sidebar while a control is focused, so an open dropdown sits over the chart cards instead of behind them. */
           z-index: 1000;
         }
 
@@ -902,7 +883,7 @@ ui <- page_fluid(
   padding: 0.1rem 0.4rem;
 }
 
-/* Keep Play beside the Play until label. */
+/* Puts the Play button on the same row as the end quarter label. */
 .playback-end-label-row {
   display: flex;
   justify-content: space-between;
@@ -1049,14 +1030,14 @@ ui <- page_fluid(
           position: relative;
         }
 
-        /* Keep the current charts visible while Shiny prepares the next quarter. */
+        /* Stop Shiny fading these out while recalculating, which makes playback look smoother. */
         #driver_map.recalculating, #interstate_momentum.recalculating,
         #driver_timeline.recalculating {
           opacity: 1;
         }
 
         .analysis-layout #population_fingerprint {
-          /* Leave room for all 21 ages; the timeline fills the other card. */
+          /* Fixed height so all 21 age bands fit; the timeline card stretches instead. */
           flex: 0 0 450px;
         }
 
@@ -1204,9 +1185,7 @@ ui <- page_fluid(
   ),
 
 
-  # ----------------------------------------------------------
   # GLOBAL CONTROLS AND MAIN CONTENT
-  # ----------------------------------------------------------
 
   tags$div(
     class = "dashboard-shell",
@@ -1234,7 +1213,7 @@ ui <- page_fluid(
         tags$div(
           class = "control-group",
 
-          # Current quarter and playback starting point.
+          # The quarter everything is driven by, and where playback starts from.
           tags$div(
             class = "quarter-label-row",
             tags$div(
@@ -1257,7 +1236,7 @@ ui <- page_fluid(
             width = "100%"
           ),
 
-          # Choose where playback should stop.
+          # Where playback stops, plus the Play button itself.
           tags$div(
             class = "playback-end",
             tags$div(
@@ -1335,9 +1314,7 @@ ui <- page_fluid(
     tags$main(
       class = "dashboard-main",
 
-      # ----------------------------------------------------------
       # DASHBOARD HEADER
-      # ----------------------------------------------------------
 
       tags$div(
         class = "dashboard-header",
@@ -1352,9 +1329,7 @@ ui <- page_fluid(
       ),
 
 
-      # ----------------------------------------------------------
       # KPI CARDS
-      # ----------------------------------------------------------
 
       layout_columns(
         col_widths = breakpoints(
@@ -1429,17 +1404,13 @@ ui <- page_fluid(
       ),
 
 
-      # ----------------------------------------------------------
       # MAIN VISUALISATION AREA
-      # ----------------------------------------------------------
 
       tags$div(
         class = "analysis-layout",
 
 
-        # --------------------------------------------------------
         # GROWTH DRIVER MAP
-        # --------------------------------------------------------
 
         card(
           card_header(
@@ -1476,9 +1447,7 @@ ui <- page_fluid(
         ),
 
 
-        # --------------------------------------------------------
         # INTERSTATE MOMENTUM
-        # --------------------------------------------------------
 
         card(
           card_header(
@@ -1498,9 +1467,7 @@ ui <- page_fluid(
         ),
 
 
-        # --------------------------------------------------------
         # DRIVER TIMELINE
-        # --------------------------------------------------------
 
         card(
           card_header(
@@ -1520,9 +1487,7 @@ ui <- page_fluid(
         ),
 
 
-        # --------------------------------------------------------
         # POPULATION FINGERPRINT
-        # --------------------------------------------------------
 
         card(
           card_header(
@@ -1603,22 +1568,18 @@ ui <- page_fluid(
 )
 
 
-# ------------------------------------------------------------
-# 6. SERVER
-# ------------------------------------------------------------
+# 6. SERVER - reactive logic behind the KPI cards and the four charts.
 
 server <- function(input, output, session) {
-  # ----------------------------------------------------------
+  
   # SHARED REACTIVES AND KPIs
-  # ----------------------------------------------------------
-
   selected_quarter <- reactive({
     req(input$quarter)
     as.Date(input$quarter)
   })
 
 
-  # Get total population for the selected state and quarter.
+  # Total population for whichever state and quarter is selected.
   selected_population <- reactive({
     population %>%
       filter(
@@ -1629,7 +1590,7 @@ server <- function(input, output, session) {
   })
 
 
-  # Get the population-change components for the current selection.
+  # Natural increase and the two migration components for the same selection.
   selected_components <- reactive({
     components %>%
       filter(
@@ -1667,7 +1628,7 @@ server <- function(input, output, session) {
   })
 
 
-  # Find the component with the largest contribution, whether positive or negative.
+  # Biggest driver by absolute value, so a large outflow counts just as much as a large inflow.
   output$driver_kpi <- renderText({
     data <- selected_components() %>%
       filter(
@@ -1713,14 +1674,10 @@ server <- function(input, output, session) {
   })
 
 
-  # ==========================================================
-  # GROWTH DRIVER MAP
-  # ==========================================================
+  # ------------------------------------------------------------ GROWTH DRIVER MAP -------------------------------------------------------------
 
 
-  # ----------------------------------------------------------
-  # PREPARE MAP DATA
-  # ----------------------------------------------------------
+  # A. PREPARE MAP DATA
 
   map_data <- reactive({
     quarter <- selected_quarter()
@@ -1734,7 +1691,7 @@ server <- function(input, output, session) {
       )
 
 
-    # Find the largest driver for each state in this quarter.
+    # Work out which driver dominates in each state this quarter.
     dominant_driver <- driver_data %>%
       filter(
         is.finite(value)
@@ -1754,7 +1711,7 @@ server <- function(input, output, session) {
       )
 
 
-    # Put all three drivers into columns, keeping missing values for the tooltips.
+    # Expand to every state/driver pair first, then widen, so a state missing one component still gets a row and the tooltip can show "Not available" for it.
     component_wide <- expand_grid(
       state = state_choices,
       component = names(driver_colours)
@@ -1802,7 +1759,7 @@ server <- function(input, output, session) {
       )
 
 
-    # Bring the drivers and population together with each state's map geometry.
+    # Join it all onto the state geometry, ready to plot.
     data <- map_states %>%
       left_join(
         dominant_driver,
@@ -1822,9 +1779,7 @@ server <- function(input, output, session) {
       )
 
 
-    # --------------------------------------------------------
-    # FORMAT MAP VALUES
-    # --------------------------------------------------------
+    # B. FORMAT MAP VALUES
 
     data$natural_display <- format_metric(
       data$`Natural Increase`,
@@ -1875,7 +1830,7 @@ server <- function(input, output, session) {
     ] <- "Not available"
 
 
-    # Build the detailed hover text for each state.
+    # Hover text for each state, written as HTML so ggiraph renders the formatting.
     data$tooltip <- paste0(
       "<strong>",
       data$state,
@@ -1917,9 +1872,7 @@ server <- function(input, output, session) {
   })
 
 
-  # ----------------------------------------------------------
-  # RENDER GROWTH DRIVER MAP
-  # ----------------------------------------------------------
+  # C. RENDER GROWTH DRIVER MAP
 
   output$driver_map <- renderGirafe({
     data <- map_data()
@@ -1932,7 +1885,7 @@ server <- function(input, output, session) {
     )
 
 
-    # Colour each state by its largest driver.
+    # Fill each state by its dominant driver, greying out anything without data.
     map_plot <- ggplot(
       data = data
     ) +
@@ -1986,7 +1939,6 @@ server <- function(input, output, session) {
       selection_input = "state"
     )
 
-
     style_girafe(
       widget,
       hover_css = "stroke:#222222;stroke-width:2px;cursor:pointer;",
@@ -1997,23 +1949,17 @@ server <- function(input, output, session) {
   })
 
 
-  # ==========================================================
-  # DRIVER TIMELINE
-  # ==========================================================
+  # ---------------------------------------------------------------- DRIVER TIMELINE -----------------------------------------------------------------
 
+  # A. PREPARE TIMELINE DATA
 
-  # ----------------------------------------------------------
-  # PREPARE TIMELINE DATA
-  # ----------------------------------------------------------
-
-  # Prepare the full history for this state and display mode, not just one quarter.
+  # The whole history for the selected state, not just one quarter, since the timeline only needs redrawing when the state or the people/rate toggle changes.
   timeline_data <- reactive({
     driver_history <- components %>%
       filter(
         state == input$state,
         component %in% names(driver_colours)
       )
-
 
     population_history <- population %>%
       filter(
@@ -2025,13 +1971,11 @@ server <- function(input, output, session) {
         population
       )
 
-
     data <- driver_history %>%
       left_join(
         population_history,
         by = "date"
       )
-
 
     if (
       input$value_mode == "rate"
@@ -2050,14 +1994,12 @@ server <- function(input, output, session) {
         )
     }
 
-
     data$component <- factor(
       data$component,
       levels = names(
         driver_colours
       )
     )
-
 
     data$component_label <- factor(
       as.character(
@@ -2084,7 +2026,6 @@ server <- function(input, output, session) {
       )
     }
 
-
     data$tooltip <- paste0(
       "<strong>",
       as.character(
@@ -2103,14 +2044,11 @@ server <- function(input, output, session) {
       "</strong>"
     )
 
-
     data
   })
 
 
-  # ----------------------------------------------------------
-  # RENDER DRIVER TIMELINE
-  # ----------------------------------------------------------
+  # B. RENDER DRIVER TIMELINE
 
   output$driver_timeline <- renderGirafe({
     data <- timeline_data()
@@ -2127,7 +2065,6 @@ server <- function(input, output, session) {
       )
     )
 
-
     y_axis_label <- if (
       input$value_mode == "rate"
     ) {
@@ -2135,7 +2072,6 @@ server <- function(input, output, session) {
     } else {
       "People"
     }
-
 
     timeline_plot <- ggplot(
       data,
@@ -2151,7 +2087,7 @@ server <- function(input, output, session) {
         linewidth = 0.45
       ) +
 
-      # Move this line in the browser so quarter changes do not redraw the history.
+      # Drawn once at the current quarter, then moved in the browser by the JS above, so changing quarter never re-renders the full history.
       geom_vline_interactive(
         xintercept = isolate(selected_quarter()),
         data_id = "quarter-playhead-reference",
@@ -2234,12 +2170,10 @@ server <- function(input, output, session) {
         )
       )
 
-
     widget <- card_girafe(
       timeline_plot, "driver_timeline", session,
       selection_input = "quarter"
     )
-
 
     style_girafe(
       widget,
@@ -2248,7 +2182,7 @@ server <- function(input, output, session) {
         "stroke-width:2px;cursor:pointer;"
       ),
       selection_type = "single",
-      # Later quarter changes update these markers in the browser too.
+      # Starting highlight only, later quarter changes are handled client-side.
       selected = isolate(as.character(selected_quarter())),
       selection_css = paste0(
         "fill:#222222;stroke:#222222;",
@@ -2258,16 +2192,12 @@ server <- function(input, output, session) {
   })
 
 
-  # ==========================================================
-  # INTERSTATE MOMENTUM
-  # ==========================================================
 
+  # -------------------------------------------------------------- INTERSTATE MOMENTUM --------------------------------------------------------------
 
-  # ----------------------------------------------------------
-  # PREPARE INTERSTATE DATA
-  # ----------------------------------------------------------
+  # A. PREPARE INTERSTATE DATA
 
-  # Compare all states in this quarter; choosing a state only changes its outline.
+  # Always shows every state for the quarter. Selecting a state just outlines its bar rather than filtering, otherwise there is nothing left to compare against.
   interstate_data <- reactive({
     quarter <- selected_quarter()
 
@@ -2284,7 +2214,6 @@ server <- function(input, output, session) {
         value
       )
 
-
     quarter_population <- population %>%
       filter(
         date == quarter,
@@ -2296,13 +2225,11 @@ server <- function(input, output, session) {
         population
       )
 
-
     data <- interstate %>%
       left_join(
         quarter_population,
         by = "state"
       )
-
 
     if (
       input$value_mode == "rate"
@@ -2321,7 +2248,6 @@ server <- function(input, output, session) {
         )
     }
 
-
     data <- data %>%
       mutate(
         direction = case_when(
@@ -2331,7 +2257,6 @@ server <- function(input, output, session) {
           TRUE ~ "Not available"
         )
       )
-
 
     if (
       input$value_mode == "rate"
@@ -2344,7 +2269,6 @@ server <- function(input, output, session) {
         data$display_value
       )
     }
-
 
     data$population_display <- format_population(
       data$population
@@ -2369,7 +2293,6 @@ server <- function(input, output, session) {
       data$population_display
     )
 
-
     data <- data %>%
       filter(
         is.finite(display_value)
@@ -2378,24 +2301,19 @@ server <- function(input, output, session) {
         display_value
       )
 
-
     data$state_order <- factor(
       data$state,
       levels = data$state
     )
 
-
     data
   })
 
 
-  # ----------------------------------------------------------
-  # RENDER INTERSTATE MOMENTUM
-  # ----------------------------------------------------------
+  # B. RENDER INTERSTATE MOMENTUM
 
   output$interstate_momentum <- renderGirafe({
     data <- interstate_data()
-
 
     validate(
       need(
@@ -2403,7 +2321,6 @@ server <- function(input, output, session) {
         "Interstate migration data is not available for this selection."
       )
     )
-
 
     x_axis_label <- if (
       input$value_mode == "rate"
@@ -2413,12 +2330,11 @@ server <- function(input, output, session) {
       "Net interstate migration (people)"
     }
 
-
     compact_plot <- isTRUE(
       session$clientData$output_interstate_momentum_width < 420
     )
 
-    # Put losses and gains on either side of zero for an easy comparison.
+    # Diverging bars around zero, so losses and gains are easy to compare at a glance.
     interstate_plot <- ggplot(
       data,
       aes(
@@ -2526,12 +2442,10 @@ server <- function(input, output, session) {
         )
       )
 
-
     widget <- card_girafe(
       interstate_plot, "interstate_momentum", session,
       selection_input = "state"
     )
-
 
     style_girafe(
       widget,
@@ -2546,16 +2460,12 @@ server <- function(input, output, session) {
   })
 
 
-  # ==========================================================
-  # POPULATION FINGERPRINT
-  # ==========================================================
+  # --------------------------------------------------------------POPULATION FINGERPRINT --------------------------------------------------------------
 
 
-  # ----------------------------------------------------------
-  # PREPARE POPULATION PYRAMID DATA
-  # ----------------------------------------------------------
+  # A. PREPARE POPULATION PYRAMID DATA
 
-  # This annual comparison uses the state and two years, not the selected quarter.
+  # Driven by the state and the two year dropdowns. The quarter selector does not apply here because the age profiles are only published annually.
   fingerprint_data <- reactive({
     req(
       input$year_a,
@@ -2607,7 +2517,7 @@ server <- function(input, output, session) {
       )
 
 
-    # Bring both years together so each tooltip can show the values and change.
+    # Full join so every age band survives even if one of the two years is missing it, which also lets the tooltip show both values and the change between them.
     data <- full_join(
       data_a,
       data_b,
@@ -2634,7 +2544,7 @@ server <- function(input, output, session) {
         ),
 
 
-        # Plot male values to the left of zero and female values to the right.
+        # Flip the male counts negative so they plot to the left of zero, females to the right.
         plot_a = ifelse(
           sex == "Male",
           -plot_a_value,
@@ -2652,9 +2562,7 @@ server <- function(input, output, session) {
       )
 
 
-    # --------------------------------------------------------
     # FORMAT TOOLTIP VALUES
-    # --------------------------------------------------------
 
     data$population_a_display <- format_people(
       data$population_a,
@@ -2710,13 +2618,10 @@ server <- function(input, output, session) {
   })
 
 
-  # ----------------------------------------------------------
-  # RENDER POPULATION FINGERPRINT
-  # ----------------------------------------------------------
+  # B. RENDER POPULATION FINGERPRINT
 
   output$population_fingerprint <- renderGirafe({
     data <- fingerprint_data()
-
 
     validate(
       need(
@@ -2730,7 +2635,6 @@ server <- function(input, output, session) {
       )
     )
 
-
     fingerprint_plot <- ggplot(
       data,
       aes(
@@ -2738,15 +2642,14 @@ server <- function(input, output, session) {
       )
     ) +
 
-      # Separate the male and female sides at zero.
+      # Centre line splitting the male and female sides.
       geom_hline(
         yintercept = 0,
         colour = "#666666",
         linewidth = 0.5
       ) +
 
-
-      # Use Year A as a wider grey reference behind the comparison year.
+      # Year A sits behind in grey as the reference, drawn wider so it stays visible.
       geom_col(
         aes(
           y = plot_a
@@ -2755,8 +2658,7 @@ server <- function(input, output, session) {
         width = 0.82
       ) +
 
-
-      # Overlay Year B in colour and make it interactive.
+      # Year B goes on top in colour, and is the layer that carries the tooltips.
       geom_col_interactive(
         aes(
           y = plot_b,
@@ -2829,11 +2731,9 @@ server <- function(input, output, session) {
         )
       )
 
-
     widget <- card_girafe(
       fingerprint_plot, "population_fingerprint", session
     )
-
 
     style_girafe(
       widget,
@@ -2846,12 +2746,10 @@ server <- function(input, output, session) {
 }
 
 
-# ------------------------------------------------------------
-# 7. APP LAUNCH
-# ------------------------------------------------------------
+# 7. APP LAUNCH - put the UI and server together and start the app.
 
-# Run the Shiny app.
-shinyApp(
+# Run it.
+shinyApp(               
   ui = ui,
   server = server
 )
