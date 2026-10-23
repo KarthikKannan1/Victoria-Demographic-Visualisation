@@ -48,3 +48,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+.claude/
+1739619_Assignment2_Code.zip
